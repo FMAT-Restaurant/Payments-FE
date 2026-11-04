@@ -69,4 +69,4 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with: 
-          args: 'Pipeline de CI falló en ${{ github.ref_name }} por ${{ github.actor }}'
+          args: 'Pipeline de CI de FE falló en ${{ github.ref_name }} por ${{ github.actor }}'
