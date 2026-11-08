@@ -1,0 +1,99 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens - FMAT-RESTAURANT Guía Visual v2.0 (PMC-18 AC1).
+ * `@theme static` emits every token as a CSS variable on :root (even when no utility uses it)
+ * and generates the matching utilities: bg-primary, text-ink, border-border, rounded-card, ...
+ * Tailwind's default palette is removed on purpose so nobody "invents another orange".
+ */
+@theme static {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-primary: #c2410c;
+  --color-primary-hover: #9a3412;
+  --color-accent: #f97316;
+  --color-primary-soft: #fff7ed;
+  --color-ink: #111827;
+  --color-text: #374151;
+  --color-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+
+  /* State colors: the guide shows them (Éxito, Advertencia, Error, Información) without hex values. */
+  --color-success: #15803d;
+  --color-success-soft: #f0fdf4;
+  --color-warning: #b45309;
+  --color-warning-soft: #fffbeb;
+  --color-error: #b91c1c;
+  --color-error-soft: #fef2f2;
+  --color-info: #1d4ed8;
+  --color-info-soft: #eff6ff;
+
+  --radius-*: initial;
+  --radius-sm: 4px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-full: 9999px;
+
+  /* Spacing scale built on a 4px unit: p-1 = 4px, p-2 = 8px, p-3 = 12px, p-4 = 16px, p-6 = 24px, p-8 = 32px, p-12 = 48px. */
+  --spacing: 4px;
+
+  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-weight-normal: 400;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --text-h1: 28px;
+  --text-h1--line-height: 36px;
+  --text-h1--font-weight: 700;
+  --text-h2: 22px;
+  --text-h2--line-height: 30px;
+  --text-h2--font-weight: 700;
+  --text-h3: 18px;
+  --text-h3--line-height: 26px;
+  --text-h3--font-weight: 600;
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  --text-small: 14px;
+  --text-small--line-height: 20px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+
+  --shadow-card: 0 1px 2px 0 rgb(17 24 39 / 0.04);
+  --shadow-modal: 0 20px 40px -12px rgb(17 24 39 / 0.25);
+
+  /* Responsive layout (PMC-18 AC2): Mobile < 768px (4 cols), Tablet 768-1199px (8 cols), Desktop >= 1200px (12 cols). */
+  --breakpoint-*: initial;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1200px;
+}
+
+:root {
+  --space-unit: 4px;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Keyboard focus must always be visible. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  @media print {
+    body {
+      background-color: var(--color-white);
+    }
+  }
+}
