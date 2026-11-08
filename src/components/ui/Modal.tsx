@@ -77,7 +77,7 @@ export function Modal({ open, title, children, onClose, footer, size = 'md', hid
   if (!open) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto p-4">
+    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-4">
       {onClose ? (
         <button
           type="button"
