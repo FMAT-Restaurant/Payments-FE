@@ -1,4 +1,5 @@
 import { http, HttpResponse, type HttpHandler } from 'msw'
+import type { CashShiftDTO, OpenCashShiftRequestDTO } from '../api/contracts/cashShift'
 import type { ChargeRequestDTO, ChargeResponseDTO } from '../api/contracts/charge'
 import type { TicketReceiptDTO } from '../api/contracts/ticket'
 import { endpoints } from '../api/endpoints'
@@ -16,6 +17,8 @@ const error = (status: number, code: string, message: string) => HttpResponse.js
 
 let folioSequence = 1
 const tickets = new Map<string, TicketReceiptDTO>()
+/** The demo session starts without an open shift, so the opening flow of PMC-22 can be tried. */
+let openShift: CashShiftDTO | null = null
 
 export const handlers: HttpHandler[] = [
   // PMC-20: account of the "Procesar Pago" screen.
@@ -24,8 +27,35 @@ export const handlers: HttpHandler[] = [
     return account ? HttpResponse.json(account) : error(404, 'BILL_NOT_FOUND', 'La cuenta no existe o ya fue cobrada')
   }),
 
+  // PMC-22: shift of the logged-in cashier.
+  http.get(apiUrl(endpoints.myCashShift()), () =>
+    openShift ? HttpResponse.json(openShift) : error(404, 'CASH_SHIFT_NOT_FOUND', 'No tienes un turno de caja abierto'),
+  ),
+
+  // PMC-22: opening with the declared fund.
+  http.post(apiUrl(endpoints.openCashShift()), async ({ request }) => {
+    const body = (await request.json()) as OpenCashShiftRequestDTO
+    if (openShift) {
+      return error(409, 'CASH_SHIFT_ALREADY_OPEN', 'Ya tienes un turno de caja abierto en otra sesión')
+    }
+    if (typeof body.initial_amount !== 'number' || body.initial_amount < 0) {
+      return error(400, 'VALIDATION_ERROR', 'El fondo inicial debe ser mayor o igual a 0.')
+    }
+    openShift = {
+      cash_shift_id: crypto.randomUUID(),
+      cashier_name: 'Edwing Molina',
+      opened_at: new Date().toISOString(),
+      initial_amount: body.initial_amount,
+    }
+    return HttpResponse.json(
+      { cash_shift_id: openShift.cash_shift_id, status: 'OPEN', message: 'Turno de caja abierto' },
+      { status: 201 },
+    )
+  }),
+
   // PMC-20: charge with the same business rules as the Backend.
   http.post(apiUrl(endpoints.charge()), async ({ request }) => {
+    if (!openShift) return error(403, 'CASH_SHIFT_NOT_OPEN', 'Debe abrir caja antes de cobrar')
     const body = (await request.json()) as ChargeRequestDTO
     const index = pendingAccounts.findIndex((item) => item.dinning_session_id === body.dinning_session_id)
     if (index === -1) return error(404, 'BILL_NOT_FOUND', 'La cuenta no existe o ya fue cobrada')

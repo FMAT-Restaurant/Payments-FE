@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react'
 import { Link, Outlet } from 'react-router'
+import { CashShiftOpening } from '../../features/cash-shift/CashShiftOpening'
 import { cn } from '../../lib/cn'
 
 /**
@@ -10,6 +11,7 @@ export function ModuleLayout() {
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 tablet:px-6 tablet:py-8 desktop:px-8">
       <Outlet />
+      <CashShiftOpening />
     </main>
   )
 }

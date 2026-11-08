@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -8,6 +8,7 @@ import { endpoints } from '../api/endpoints'
 import { routes } from '../app/router'
 import { chargePath, ROUTES } from '../app/routes'
 import { ROLES } from '../auth/roles'
+import { resolveCashShiftOpening } from '../features/cash-shift/cashShiftGate'
 import { toastStore } from '../features/notifications/toastStore'
 import { CARD_EXCEEDS_TOTAL_MESSAGE, UNNECESSARY_CASH_MESSAGE } from '../features/charge/chargeRules'
 import { server } from '../test/server'
@@ -244,6 +245,26 @@ describe('PMC-20 · Procesar Pago', () => {
     expect(router.state.location.pathname).toBe(chargePath(SESSION_ID))
     expect(within(line(1)).getByLabelText(/Monto recibido en efectivo/)).toHaveValue(200)
     expect(confirmButton()).toBeEnabled()
+  })
+
+  it('PMC-22 AC5: a charge without an open shift shows the error and the opening modal over the form', async () => {
+    mockAccount()
+    server.use(
+      http.post(url(endpoints.charge()), () =>
+        HttpResponse.json({ code: 'CASH_SHIFT_NOT_OPEN', message: 'Debe abrir caja antes de cobrar' }, { status: 403 }),
+      ),
+    )
+    const { user, router } = await renderChargePage()
+
+    await fillLine(user, 1, 'CASH', '200')
+    await waitFor(() => expect(confirmButton()).toBeEnabled())
+    await user.click(confirmButton())
+
+    expect(await screen.findByRole('dialog', { name: 'Apertura de Turno de Caja' })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Debe abrir caja antes de cobrar')
+    expect(router.state.location.pathname).toBe(chargePath(SESSION_ID))
+    expect(within(line(1)).getByLabelText(/Monto recibido en efectivo/)).toHaveValue(200)
+    act(() => resolveCashShiftOpening())
   })
 
   it('AC5: "Cancelar" returns to the cash tray', async () => {
