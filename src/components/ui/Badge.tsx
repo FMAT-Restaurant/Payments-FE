@@ -19,7 +19,7 @@ export interface BadgeProps extends ComponentProps<'span'> {
   withDot?: boolean
 }
 
-export function Badge({ variant = 'neutral', withDot = false, className, children, ...props }: BadgeProps) {
+export function Badge({ variant = 'neutral', withDot = false, className, children, ...props }: Readonly<BadgeProps>) {
   return (
     <span
       className={cn(

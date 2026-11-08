@@ -21,7 +21,7 @@ export function Input({
   required,
   className,
   ...props
-}: InputProps) {
+}: Readonly<InputProps>) {
   const generatedId = useId()
   const inputId = id ?? generatedId
   const helperId = `${inputId}-helper`

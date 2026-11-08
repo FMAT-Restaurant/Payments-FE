@@ -25,9 +25,9 @@ const sizeClasses = {
 }
 
 /** Accessible modal: focus moves inside, Tab stays inside, focus returns to the trigger on close. */
-export function Modal({ open, title, children, onClose, footer, size = 'md', hideTitle = false, className }: ModalProps) {
+export function Modal({ open, title, children, onClose, footer, size = 'md', hideTitle = false, className }: Readonly<ModalProps>) {
   const titleId = useId()
-  const panelRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDialogElement>(null)
   const onCloseRef = useRef(onClose)
 
   useEffect(() => {
@@ -53,10 +53,10 @@ export function Modal({ open, title, children, onClose, footer, size = 'md', hid
         return
       }
       const first = focusable[0]
-      const last = focusable[focusable.length - 1]
+      const last = focusable.at(-1)
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault()
-        last.focus()
+        last?.focus()
       } else if (!event.shiftKey && document.activeElement === last) {
         event.preventDefault()
         first.focus()
@@ -77,21 +77,28 @@ export function Modal({ open, title, children, onClose, footer, size = 'md', hid
   if (!open) return null
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-ink/45 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.()
-      }}
-      data-testid="modal-overlay"
-    >
-      <div
+    <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto p-4">
+      {onClose ? (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Cerrar ventana"
+          onClick={onClose}
+          className="fixed inset-0 cursor-default bg-ink/45"
+          data-testid="modal-overlay"
+        />
+      ) : (
+        <div aria-hidden="true" className="fixed inset-0 bg-ink/45" data-testid="modal-overlay" />
+      )}
+      {/* Rendered `open` (not showModal) so focus handling stays in React and works the same in tests. */}
+      <dialog
         ref={panelRef}
-        role="dialog"
+        open
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          'my-auto w-full rounded-card border border-border bg-surface p-6 shadow-modal tablet:p-8',
+          'relative m-auto w-full rounded-card border border-border bg-surface p-6 text-text shadow-modal tablet:p-8',
           sizeClasses[size],
           className,
         )}
@@ -101,7 +108,7 @@ export function Modal({ open, title, children, onClose, footer, size = 'md', hid
         </h2>
         {children}
         {footer && <div className="mt-6 flex flex-col-reverse gap-3 tablet:flex-row tablet:justify-end">{footer}</div>}
-      </div>
+      </dialog>
     </div>,
     document.body,
   )

@@ -3,7 +3,7 @@ import { BackLink } from '../components/layout/ModuleLayout'
 import { Card, EmptyState } from '../components/ui'
 
 /** Placeholder for the screens of the next stories, so navigation works end to end. */
-export function PendingPage({ title, story }: { title: string; story: string }) {
+export function PendingPage({ title, story }: Readonly<{ title: string; story: string }>) {
   return (
     <section className="flex flex-col gap-6">
       <BackLink to={ROUTES.menu}>Regresar al Menú</BackLink>

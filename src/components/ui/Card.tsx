@@ -6,6 +6,6 @@ export interface CardProps extends ComponentProps<'div'> {
   padding?: CardPadding
 }
 
-export function Card({ padding = 'md', className, ...props }: CardProps) {
+export function Card({ padding = 'md', className, ...props }: Readonly<CardProps>) {
   return <div className={cn(cardClassName(padding), className)} {...props} />
 }

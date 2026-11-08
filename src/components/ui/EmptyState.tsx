@@ -9,7 +9,7 @@ export interface EmptyStateProps {
 }
 
 /** Empty / informative state: says what happened and what can be done next (Guía Visual pág. 9). */
-export function EmptyState({ title, description, action, className }: EmptyStateProps) {
+export function EmptyState({ title, description, action, className }: Readonly<EmptyStateProps>) {
   return (
     <div className={cn('flex flex-col items-center gap-2 px-4 py-12 text-center', className)}>
       <p className="text-h3 text-ink">{title}</p>

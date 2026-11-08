@@ -10,7 +10,7 @@ interface AppProvidersProps {
   getToken?: () => string | null
 }
 
-export function AppProviders({ children, queryClient, getToken }: AppProvidersProps) {
+export function AppProviders({ children, queryClient, getToken }: Readonly<AppProvidersProps>) {
   const [client] = useState(() => queryClient ?? createQueryClient())
 
   return (

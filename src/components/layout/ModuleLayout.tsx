@@ -15,13 +15,13 @@ export function ModuleLayout() {
 }
 
 /** Responsive grid: 4 columns on mobile, 8 on tablet (768-1199px), 12 on desktop (>=1200px). */
-export function PageGrid({ className, ...props }: ComponentProps<'div'>) {
+export function PageGrid({ className, ...props }: Readonly<ComponentProps<'div'>>) {
   return (
     <div className={cn('grid grid-cols-4 gap-4 tablet:grid-cols-8 tablet:gap-6 desktop:grid-cols-12', className)} {...props} />
   )
 }
 
-export function BackLink({ to, children }: { to: string; children: string }) {
+export function BackLink({ to, children }: Readonly<{ to: string; children: string }>) {
   return (
     <Link
       to={to}

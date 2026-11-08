@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { Badge, Button, Card, Input, Modal } from '.'
+import { Badge, Button, Card, Input, Modal, Spinner } from '.'
 
 describe('<Button />', () => {
   it.each([
@@ -69,6 +69,19 @@ describe('<Input />', () => {
   it('supports the LG size (48px)', () => {
     render(<Input label="Efectivo" size="lg" />)
     expect(screen.getByLabelText('Efectivo')).toHaveClass('h-12')
+  })
+})
+
+describe('<Spinner />', () => {
+  it('announces loading when it has a label and is decorative otherwise', () => {
+    const { container } = render(
+      <>
+        <Spinner label="Cargando cuentas" />
+        <Spinner />
+      </>,
+    )
+    expect(screen.getByRole('status', { name: 'Cargando cuentas' })).toBeInTheDocument()
+    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(1)
   })
 })
 

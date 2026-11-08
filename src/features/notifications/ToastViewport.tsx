@@ -10,20 +10,18 @@ const variantStyles: Record<ToastVariant, string> = {
   info: 'border-info/30 bg-info-soft text-info',
 }
 
-function ToastItem({ toast }: { toast: Toast }) {
+function ToastItem({ toast }: Readonly<{ toast: Toast }>) {
   useEffect(() => {
     const timer = window.setTimeout(() => dismissToast(toast.id), TOAST_DURATION_MS)
     return () => window.clearTimeout(timer)
   }, [toast.id])
 
-  return (
-    <div
-      role={toast.variant === 'error' ? 'alert' : 'status'}
-      className={cn(
-        'pointer-events-auto flex items-start gap-3 rounded-control border px-4 py-3 text-small shadow-card',
-        variantStyles[toast.variant],
-      )}
-    >
+  const className = cn(
+    'pointer-events-auto flex items-start gap-3 rounded-control border px-4 py-3 text-small shadow-card',
+    variantStyles[toast.variant],
+  )
+  const content = (
+    <>
       <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-current" />
       <p className="flex-1 font-semibold">{toast.message}</p>
       <button
@@ -34,7 +32,16 @@ function ToastItem({ toast }: { toast: Toast }) {
       >
         ×
       </button>
+    </>
+  )
+
+  // Errors interrupt (alert); the rest are polite status messages (<output> has the implicit "status" role).
+  return toast.variant === 'error' ? (
+    <div role="alert" className={className}>
+      {content}
     </div>
+  ) : (
+    <output className={className}>{content}</output>
   )
 }
 

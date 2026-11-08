@@ -1,8 +1,6 @@
 import { tokenStorage } from '../auth/tokenStorage'
 import { isRole, ROLES } from '../auth/roles'
-
-const base64Url = (value: object): string =>
-  btoa(JSON.stringify(value)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
+import { base64UrlJson } from '../lib/base64Url'
 
 const EIGHT_HOURS_S = 8 * 60 * 60
 
@@ -19,5 +17,5 @@ export function createDevSession(role: string): void {
     iat: now,
     exp: now + EIGHT_HOURS_S,
   }
-  tokenStorage.set(`${base64Url({ alg: 'none', typ: 'JWT' })}.${base64Url(payload)}.`)
+  tokenStorage.set(`${base64UrlJson({ alg: 'none', typ: 'JWT' })}.${base64UrlJson(payload)}.`)
 }

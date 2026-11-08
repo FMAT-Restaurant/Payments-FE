@@ -19,7 +19,7 @@ interface AuthProviderProps {
   getToken?: () => string | null
 }
 
-export function AuthProvider({ children, getToken = tokenStorage.get }: AuthProviderProps) {
+export function AuthProvider({ children, getToken = tokenStorage.get }: Readonly<AuthProviderProps>) {
   const [user, setUser] = useState(() => loadUser(getToken))
 
   // Login, logout or token refresh made by the Shell in another tab.

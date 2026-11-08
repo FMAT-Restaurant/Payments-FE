@@ -12,7 +12,7 @@ interface RequireAuthProps {
 }
 
 /** Route guard: without a valid JWT the user goes to the Auth login; without a valid role, the module is locked. */
-export function RequireAuth({ children, roles, onUnauthenticated = authNavigation.toLogin }: RequireAuthProps) {
+export function RequireAuth({ children, roles, onUnauthenticated = authNavigation.toLogin }: Readonly<RequireAuthProps>) {
   const { user, isAuthenticated, hasAnyRole } = useAuth()
 
   useEffect(() => {
@@ -43,7 +43,7 @@ interface CanProps {
 }
 
 /** Renders role-restricted controls only for the users allowed to use them (e.g. "Exportar CSV"). */
-export function Can({ permission, children, fallback = null }: CanProps) {
+export function Can({ permission, children, fallback = null }: Readonly<CanProps>) {
   const { can } = useAuth()
   return <>{can(permission) ? children : fallback}</>
 }

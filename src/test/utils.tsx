@@ -3,13 +3,11 @@ import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router'
 import { AppProviders } from '../app/AppProviders'
-
-const base64Url = (value: object): string =>
-  btoa(JSON.stringify(value)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
+import { base64UrlJson } from '../lib/base64Url'
 
 /** Unsigned JWT for tests. */
 export function makeToken(claims: Record<string, unknown>): string {
-  return `${base64Url({ alg: 'none', typ: 'JWT' })}.${base64Url(claims)}.`
+  return `${base64UrlJson({ alg: 'none', typ: 'JWT' })}.${base64UrlJson(claims)}.`
 }
 
 export const futureExp = () => Math.floor(Date.now() / 1000) + 3600
