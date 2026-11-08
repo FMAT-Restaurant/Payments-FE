@@ -16,7 +16,8 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to={ROUTES.menu} replace /> },
       { path: ROUTES.menu, element: <MenuPage /> },
       { path: ROUTES.cashTray, element: <PendingPage title="Bandeja de Caja" story="PMC-19" /> },
-      { path: ROUTES.charge, element: <PendingPage title="Procesar Pago" story="PMC-20" /> },
+      // Form screens load on demand so the menu does not download zod and react-hook-form.
+      { path: ROUTES.charge, lazy: async () => ({ Component: (await import('../pages/ChargePage')).ChargePage }) },
       { path: ROUTES.cashShiftClose, element: <PendingPage title="Arqueo y Cierre de Turno" story="PMC-23" /> },
       { path: ROUTES.salesHistory, element: <PendingPage title="Historial de Ventas" story="PMC-24" /> },
       { path: '*', element: <NotFoundPage /> },
