@@ -81,6 +81,7 @@ describe('PMC-20 · Procesar Pago', () => {
           { status: 201 },
         )
       }),
+      http.get(url('/:folio/ticket'), () => HttpResponse.json({ code: 'TRANSACTION_NOT_FOUND', message: 'x' }, { status: 404 })),
     )
     const { user, router } = await renderChargePage()
 
@@ -93,7 +94,8 @@ describe('PMC-20 · Procesar Pago', () => {
     await waitFor(() => expect(confirmButton()).toBeEnabled())
     await user.click(confirmButton())
 
-    await waitFor(() => expect(router.state.location.pathname).toBe(ROUTES.cashTray))
+    expect(await screen.findByRole('dialog', { name: 'Transacción #TX-20260929-002' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe(chargePath(SESSION_ID))
     expect(body).toEqual({
       dinning_session_id: SESSION_ID,
       tip: 30,
@@ -102,7 +104,6 @@ describe('PMC-20 · Procesar Pago', () => {
         { payment_method: 'CREDIT_CARD', amount: 130, authorization_reference: 'AUTH-123' },
       ],
     })
-    expect(toastStore.getState()[0].message).toContain('Cobro completado · Folio TX-20260929-002')
   })
 
   it('Scenario 2: cálculo automático de cambio solo con efectivo excedente', async () => {

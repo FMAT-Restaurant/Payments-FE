@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { FormProvider, useForm, useWatch, type Resolver } from 'react-hook-form'
 import { useNavigate, useParams } from 'react-router'
 import { postCharge } from '../api/charge'
@@ -9,6 +9,7 @@ import type { PendingAccountCardDTO } from '../api/contracts/pendingAccounts'
 import { isApiError } from '../api/errors'
 import { getPendingAccount } from '../api/pendingAccounts'
 import { queryKeys } from '../api/queryKeys'
+import { getTicket } from '../api/tickets'
 import { ROUTES } from '../app/routes'
 import { BackLink, PageGrid } from '../components/layout/ModuleLayout'
 import { Button, Card, EmptyState } from '../components/ui'
@@ -21,10 +22,9 @@ import {
 import { blockingReason, evaluateCharge, resolveTip } from '../features/charge/chargeRules'
 import { ChargeTotals } from '../features/charge/ChargeTotals'
 import { OrderSummaryPanel } from '../features/charge/OrderSummaryPanel'
+import { PostChargeModal } from '../features/charge/PostChargeModal'
 import { PaymentLinesField } from '../features/charge/PaymentLinesField'
 import { TipSelector } from '../features/charge/TipSelector'
-import { notify } from '../features/notifications/toastStore'
-import { formatCurrency } from '../lib/money'
 
 function ChargeSkeleton() {
   return (
@@ -60,15 +60,30 @@ function ChargeForm({ account }: Readonly<{ account: PendingAccountCardDTO }>) {
   const reason = blockingReason(evaluation)
   const tipLabel = tipOption !== 'NONE' && tipOption !== 'CUSTOM' ? `Propina (${tipOption}%)` : 'Propina'
 
+  const [completedCharge, setCompletedCharge] = useState<ChargeResponseDTO | null>(null)
   const charge = useMutation({
     mutationFn: postCharge,
     onSuccess: (response: ChargeResponseDTO) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.pendingAccounts })
-      const change = response.change_delivered > 0 ? ` · Cambio a entregar: ${formatCurrency(response.change_delivered)}` : ''
-      notify.success(`Cobro completado · Folio ${response.folio}${change}`)
-      navigate(ROUTES.cashTray)
+      // Only the tray list: this account no longer exists and refetching it would replace the screen with a 404.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.pendingAccounts, exact: true })
+      setCompletedCharge(response)
     },
   })
+
+  // PMC-21 AC1: right after the charge, the receipt is requested; the modal opens with its answer.
+  const folio = completedCharge?.folio ?? ''
+  const ticket = useQuery({
+    queryKey: queryKeys.ticket(folio),
+    queryFn: () => getTicket(folio),
+    enabled: completedCharge !== null,
+    retry: false,
+  })
+  const awaitingTicket = completedCharge !== null && ticket.isPending
+
+  const backToTray = () => {
+    setCompletedCharge(null)
+    navigate(ROUTES.cashTray)
+  }
 
   const onSubmit = form.handleSubmit((values) =>
     charge.mutate(toChargeRequest(account.dinning_session_id, values, consumptionTotal)),
@@ -110,13 +125,17 @@ function ChargeForm({ account }: Readonly<{ account: PendingAccountCardDTO }>) {
               <Button variant="neutral" size="lg" onClick={() => navigate(ROUTES.cashTray)}>
                 Cancelar
               </Button>
-              <Button type="submit" size="lg" isLoading={charge.isPending} disabled={!canConfirm}>
+              <Button type="submit" size="lg" isLoading={charge.isPending || awaitingTicket} disabled={!canConfirm}>
                 Confirmar cobro
               </Button>
             </div>
           </Card>
         </form>
       </FormProvider>
+
+      {completedCharge && !awaitingTicket && (
+        <PostChargeModal charge={completedCharge} ticket={ticket} onBackToTray={backToTray} />
+      )}
     </PageGrid>
   )
 }
