@@ -63,7 +63,7 @@ export function CashShiftOpeningModal() {
 
   const cancel = () => {
     resolveCashShiftOpening()
-    navigate(ROUTES.menu)
+    void navigate(ROUTES.menu)
   }
 
   return (

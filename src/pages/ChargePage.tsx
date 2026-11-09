@@ -82,7 +82,7 @@ function ChargeForm({ account }: Readonly<{ account: PendingAccountCardDTO }>) {
 
   const backToTray = () => {
     setCompletedCharge(null)
-    navigate(ROUTES.cashTray)
+    void navigate(ROUTES.cashTray)
   }
 
   const onSubmit = form.handleSubmit((values) =>
