@@ -52,13 +52,11 @@ jobs:
         if: env.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@v4
         with:
+          # Sources, tests and the lcov report path live in sonar-project.properties.
+          # No inline comments inside `args`: the shell treats "#" as a comment and drops every flag after it.
           args: >
             -Dsonar.organization=fmat-restaurant
-            -Dsonar.projectKey=FMAT-Restaurant_Payments-FE # <-- IMPORTANTE: Pon tu Project Key real aquí
-            -Dsonar.sources=src
-            -Dsonar.tests=src
-            -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.projectKey=FMAT-Restaurant_Payments-FE
             -Dsonar.qualitygate.wait=true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
