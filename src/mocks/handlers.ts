@@ -12,6 +12,7 @@ import { roundMoney } from '../lib/money'
 import { apiUrl } from './apiUrl'
 import { pendingAccountsFixture } from './fixtures/pendingAccounts'
 import { salesHistoryFixture } from './fixtures/salesHistory'
+import { ticketFixture, transactionDetailFixture } from './fixtures/transactionDetail'
 
 /**
  * Mock Service Worker handlers for the endpoints the Backend has not published yet or whose
@@ -180,7 +181,9 @@ export const handlers: HttpHandler[] = [
 
   // PMC-21: thermal receipt of a completed charge.
   http.get(apiUrl('/:folio/ticket'), ({ params }) => {
-    const ticket = tickets.get(String(params.folio))
+    const folio = String(params.folio)
+    const row = salesHistory.find((item) => item.folio === folio)
+    const ticket = tickets.get(folio) ?? (row ? ticketFixture(transactionDetailFixture(row)) : undefined)
     return ticket ? HttpResponse.json(ticket) : error(404, 'TRANSACTION_NOT_FOUND', `El ticket '${params.folio}' no existe`)
   }),
 
@@ -207,5 +210,11 @@ export const handlers: HttpHandler[] = [
       total_pages: Math.ceil(rows.length / pageSize),
       data: rows.slice((pageIndex - 1) * pageSize, pageIndex * pageSize),
     })
+  }),
+
+  // PMC-25: immutable detail of a history sale. Last handler, so "/export" and "/pendings" are not read as folios.
+  http.get(apiUrl('/:folio'), ({ params }) => {
+    const row = salesHistory.find((item) => item.folio === String(params.folio))
+    return row ? HttpResponse.json(transactionDetailFixture(row)) : error(404, 'TRANSACTION_NOT_FOUND', `La transacción '${params.folio}' no existe`)
   }),
 ]

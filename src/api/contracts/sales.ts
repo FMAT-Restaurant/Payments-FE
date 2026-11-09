@@ -53,3 +53,45 @@ export interface SalesHistoryPageWire {
   total_pages: number
   data: SalesHistoryItemWire[]
 }
+
+/** Immutable sale detail (PMC-25), `GET /api/v1/payments/{folio}`. Models in English, payload in snake_case. */
+export interface TransactionDetailDTO {
+  id: string
+  folio: string
+  /** ISO-8601; empty when the Backend does not send it yet. */
+  paid_at: string
+  status: 'COMPLETED'
+  subtotal: number
+  taxes: number
+  tip: number
+  total: number
+  change_given: number
+  items: Array<{
+    dish_id?: string
+    dish_name: string
+    quantity: number
+    unit_price: number
+    amount: number
+  }>
+  payment_breakdowns: Array<{
+    payment_method: string
+    amount: number
+    authorization_reference?: string | null
+  }>
+}
+
+/** Wire shape of PMC-11 in Payments-BE; the optional fields are the ones the PO agreed to add. */
+export interface TransactionDetailWire {
+  folio: string
+  total: number
+  estado: string
+  fecha_cobro?: string
+  subtotal?: number
+  impuestos?: number
+  propina?: number
+  cambio_entregado?: number
+  turno_caja_id?: string
+  dinning_session_id?: string
+  detalles: Array<{ nombre_platillo: string; cantidad: number; precio_unitario: number; importe: number }>
+  desgloses: Array<{ metodo_pago: string; monto: number; referencia_autorizacion?: string | null }>
+}

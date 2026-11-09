@@ -7,5 +7,6 @@ export const queryKeys = {
   ticket: (folio: string) => ['ticket', folio] as const,
   myCashShift: ['cash-shift', 'me'] as const,
   cashShiftSummary: ['cash-shift', 'summary'] as const,
+  transactionDetail: (folio: string) => ['transaction-detail', folio] as const,
   salesHistory: (query: SalesHistoryQuery) => ['sales-history', query] as const,
 }
