@@ -4,4 +4,5 @@ export const queryKeys = {
   pendingAccount: (dinningSessionId: string) => ['pending-accounts', dinningSessionId] as const,
   ticket: (folio: string) => ['ticket', folio] as const,
   myCashShift: ['cash-shift', 'me'] as const,
+  cashShiftSummary: ['cash-shift', 'summary'] as const,
 }

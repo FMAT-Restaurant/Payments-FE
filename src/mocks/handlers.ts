@@ -1,5 +1,10 @@
 import { http, HttpResponse, type HttpHandler } from 'msw'
-import type { CashShiftDTO, OpenCashShiftRequestDTO } from '../api/contracts/cashShift'
+import type {
+  CashShiftDTO,
+  CashShiftSummaryDTO,
+  CloseCashShiftRequestDTO,
+  OpenCashShiftRequestDTO,
+} from '../api/contracts/cashShift'
 import type { ChargeRequestDTO, ChargeResponseDTO } from '../api/contracts/charge'
 import type { TicketReceiptDTO } from '../api/contracts/ticket'
 import { endpoints } from '../api/endpoints'
@@ -19,6 +24,10 @@ let folioSequence = 1
 const tickets = new Map<string, TicketReceiptDTO>()
 /** The demo session starts without an open shift, so the opening flow of PMC-22 can be tried. */
 let openShift: CashShiftDTO | null = null
+
+/** Running totals of the open shift (PMC-23), updated by every mocked charge. */
+const emptyTotals = () => ({ cashSales: 0, cardSales: 0, cardTransactions: 0, retainedTips: 0 })
+let shiftTotals = emptyTotals()
 
 export const handlers: HttpHandler[] = [
   // PMC-19: accounts of the cash tray (polled). Charged accounts leave the list.
@@ -50,10 +59,50 @@ export const handlers: HttpHandler[] = [
       opened_at: new Date().toISOString(),
       initial_amount: body.initial_amount,
     }
+    shiftTotals = emptyTotals()
     return HttpResponse.json(
       { cash_shift_id: openShift.cash_shift_id, status: 'OPEN', message: 'Turno de caja abierto' },
       { status: 201 },
     )
+  }),
+
+  // PMC-23: real-time reconciliation of the open shift.
+  http.get(apiUrl(endpoints.cashShiftSummary()), () => {
+    if (!openShift) return error(404, 'CASH_SHIFT_NOT_FOUND', 'No tienes un turno de caja abierto')
+    const summary: CashShiftSummaryDTO = {
+      cash_shift_id: openShift.cash_shift_id,
+      cashier_name: openShift.cashier_name,
+      opened_at: openShift.opened_at,
+      initial_amount: openShift.initial_amount,
+      cash_sales: roundMoney(shiftTotals.cashSales),
+      expected_cash: roundMoney(openShift.initial_amount + shiftTotals.cashSales),
+      card_sales: roundMoney(shiftTotals.cardSales),
+      card_transaction_count: shiftTotals.cardTransactions,
+      retained_tips: roundMoney(shiftTotals.retainedTips),
+    }
+    return HttpResponse.json(summary)
+  }),
+
+  // PMC-23: closing needs the reason whenever the declared cash differs from the expected cash.
+  http.post(apiUrl(endpoints.closeCashShift()), async ({ request }) => {
+    if (!openShift) return error(404, 'CASH_SHIFT_NOT_FOUND', 'No tienes un turno de caja abierto')
+    const body = (await request.json()) as CloseCashShiftRequestDTO
+    if (typeof body.declared_cash !== 'number' || body.declared_cash < 0) {
+      return error(400, 'VALIDATION_ERROR', 'El efectivo declarado debe ser mayor o igual a 0.')
+    }
+    const expected = roundMoney(openShift.initial_amount + shiftTotals.cashSales)
+    const difference = roundMoney(body.declared_cash - expected)
+    if (difference !== 0 && !body.reason?.trim()) {
+      return error(400, 'VALIDATION_ERROR', 'El motivo es obligatorio cuando hay diferencia.')
+    }
+    const closed = openShift
+    openShift = null
+    return HttpResponse.json({
+      cash_shift_id: closed.cash_shift_id,
+      status: difference === 0 ? 'CLOSED' : 'UNBALANCED',
+      difference,
+      message: difference === 0 ? 'Turno cerrado' : 'Turno cerrado con descuadre',
+    })
   }),
 
   // PMC-20: charge with the same business rules as the Backend.
@@ -81,6 +130,13 @@ export const handlers: HttpHandler[] = [
     }
 
     const [account] = pendingAccounts.splice(index, 1)
+    const cashPaid = roundMoney(body.payments.filter((p) => p.payment_method === 'CASH').reduce((s, p) => s + p.amount, 0))
+    shiftTotals.cashSales += roundMoney(cashPaid - roundMoney(paid - total))
+    shiftTotals.cardSales += cards
+    if (cards > 0) {
+      shiftTotals.cardTransactions += 1
+      shiftTotals.retainedTips += body.tip
+    }
     const now = new Date()
     const folio = `TX-${now.toISOString().slice(0, 10).replaceAll('-', '')}-${String(folioSequence++).padStart(3, '0')}`
     const change = roundMoney(paid - total)
