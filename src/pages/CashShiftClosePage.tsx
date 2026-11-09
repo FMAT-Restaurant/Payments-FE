@@ -56,7 +56,7 @@ function ReconciliationForm({ summary }: Readonly<{ summary: CashShiftSummaryDTO
     onSuccess: async () => {
       queryClient.removeQueries({ queryKey: queryKeys.cashShiftSummary })
       await queryClient.invalidateQueries({ queryKey: queryKeys.myCashShift })
-      navigate(ROUTES.menu)
+      await navigate(ROUTES.menu)
     },
   })
 
