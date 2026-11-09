@@ -19,6 +19,8 @@ export default defineConfig(({ command, mode }) => {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       css: false,
+      // PMC-19: a short interval lets the tests observe several polling cycles.
+      env: { VITE_PENDINGS_POLL_MS: '60' },
       restoreMocks: true,
       coverage: {
         provider: 'v8',

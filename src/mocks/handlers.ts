@@ -21,6 +21,9 @@ const tickets = new Map<string, TicketReceiptDTO>()
 let openShift: CashShiftDTO | null = null
 
 export const handlers: HttpHandler[] = [
+  // PMC-19: accounts of the cash tray (polled). Charged accounts leave the list.
+  http.get(apiUrl(endpoints.pendingAccounts()), () => HttpResponse.json(pendingAccounts)),
+
   // PMC-20: account of the "Procesar Pago" screen.
   http.get(apiUrl('/pendings/:dinningSessionId'), ({ params }) => {
     const account = pendingAccounts.find((item) => item.dinning_session_id === params.dinningSessionId)

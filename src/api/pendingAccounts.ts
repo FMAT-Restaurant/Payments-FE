@@ -10,3 +10,15 @@ export async function getPendingAccount(dinningSessionId: string): Promise<Pendi
   })
   return data
 }
+
+/**
+ * PMC-19 AC4: accounts ready to be charged, polled by the cash tray.
+ * Errors are rendered by the screen itself: a toast every polling cycle would flood the cashier.
+ */
+export async function listPendingAccounts(signal?: AbortSignal): Promise<PendingAccountCardDTO[]> {
+  const { data } = await httpClient.get<PendingAccountCardDTO[]>(endpoints.pendingAccounts(), {
+    skipErrorToast: true,
+    signal,
+  })
+  return data
+}
