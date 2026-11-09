@@ -11,12 +11,14 @@ import { endpoints } from '../api/endpoints'
 import { roundMoney } from '../lib/money'
 import { apiUrl } from './apiUrl'
 import { pendingAccountsFixture } from './fixtures/pendingAccounts'
+import { salesHistoryFixture } from './fixtures/salesHistory'
 
 /**
  * Mock Service Worker handlers for the endpoints the Backend has not published yet or whose
  * contract is still being aligned. They follow the `{ code, message }` error contract.
  */
 const pendingAccounts = pendingAccountsFixture()
+const salesHistory = salesHistoryFixture()
 
 const error = (status: number, code: string, message: string) => HttpResponse.json({ code, message }, { status })
 
@@ -28,6 +30,15 @@ let openShift: CashShiftDTO | null = null
 /** Running totals of the open shift (PMC-23), updated by every mocked charge. */
 const emptyTotals = () => ({ cashSales: 0, cardSales: 0, cardTransactions: 0, retainedTips: 0 })
 let shiftTotals = emptyTotals()
+
+/** Rows inside [start, end): `end_date` is exclusive, like the Backend range. */
+const inRange = (iso: string, start: string | null, end: string | null): boolean => {
+  const time = Date.parse(iso)
+  return (!start || time >= Date.parse(start)) && (!end || time < Date.parse(end))
+}
+
+const csvOf = (rows: typeof salesHistory): string =>
+  ['folio,total,estado,fecha_cobro', ...rows.map((row) => `${row.folio},${row.total},${row.estado},${row.fecha_cobro}`)].join('\n')
 
 export const handlers: HttpHandler[] = [
   // PMC-19: accounts of the cash tray (polled). Charged accounts leave the list.
@@ -171,5 +182,30 @@ export const handlers: HttpHandler[] = [
   http.get(apiUrl('/:folio/ticket'), ({ params }) => {
     const ticket = tickets.get(String(params.folio))
     return ticket ? HttpResponse.json(ticket) : error(404, 'TRANSACTION_NOT_FOUND', `El ticket '${params.folio}' no existe`)
+  }),
+
+  // PMC-24: CSV export (Administrador). Registered before the history so "/export" is not read as a folio.
+  http.get(apiUrl(endpoints.salesExport()), ({ request }) => {
+    const url = new URL(request.url)
+    const rows = salesHistory.filter((row) => inRange(row.fecha_cobro, url.searchParams.get('start_date'), url.searchParams.get('end_date')))
+    return new HttpResponse(csvOf(rows), {
+      headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="historial-ventas.csv"' },
+    })
+  }),
+
+  // PMC-24: paginated history. The mock answers like the Backend: `page_index` is 1-based.
+  http.get(apiUrl(endpoints.salesHistory()), ({ request }) => {
+    const url = new URL(request.url)
+    const pageIndex = Number(url.searchParams.get('page_index') ?? 1)
+    const pageSize = Number(url.searchParams.get('page_size') ?? 20)
+    if (!Number.isInteger(pageIndex) || pageIndex < 1) return error(400, 'INVALID_PAGE_INDEX', 'page_index debe ser mayor a 0')
+    const rows = salesHistory.filter((row) => inRange(row.fecha_cobro, url.searchParams.get('start_date'), url.searchParams.get('end_date')))
+    return HttpResponse.json({
+      page_index: pageIndex,
+      page_size: pageSize,
+      total_count: rows.length,
+      total_pages: Math.ceil(rows.length / pageSize),
+      data: rows.slice((pageIndex - 1) * pageSize, pageIndex * pageSize),
+    })
   }),
 ]
