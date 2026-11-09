@@ -9,10 +9,16 @@ export const ROUTES = {
   cashShiftClose: '/arqueo-turno',
   /** PMC-24, PMC-25 */
   salesHistory: '/historial-ventas',
+  /** PMC-25: child route; the history stays mounted behind the modal. */
+  salesDetail: '/historial-ventas/:folio',
 } as const
 
 export const chargePath = (dinningSessionId: string): string =>
   ROUTES.charge.replace(':dinningSessionId', encodeURIComponent(dinningSessionId))
+
+/** Detail of a sale; `search` keeps the filters and the page of the history (PMC-25 AC3). */
+export const salesDetailPath = (folio: string, search = ''): string =>
+  `${ROUTES.salesDetail.replace(':folio', encodeURIComponent(folio.replace(/^#/, '')))}${search}`
 
 /** Route metadata read with `useMatches()`. */
 export interface RouteHandle {

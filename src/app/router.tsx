@@ -2,7 +2,7 @@ import { createBrowserRouter, Navigate, type RouteObject } from 'react-router'
 import { RequireAuth } from '../auth/guards'
 import { ModuleLayout } from '../components/layout/ModuleLayout'
 import { MenuPage } from '../pages/MenuPage'
-import { NotFoundPage, PendingPage } from '../pages/PendingPage'
+import { NotFoundPage } from '../pages/PendingPage'
 import { ROUTES, type RouteHandle } from './routes'
 
 export const routes: RouteObject[] = [
@@ -26,7 +26,17 @@ export const routes: RouteObject[] = [
         path: ROUTES.cashShiftClose,
         lazy: async () => ({ Component: (await import('../pages/CashShiftClosePage')).CashShiftClosePage }),
       },
-      { path: ROUTES.salesHistory, element: <PendingPage title="Historial de Ventas" story="PMC-24" /> },
+      {
+        path: ROUTES.salesHistory,
+        lazy: async () => ({ Component: (await import('../pages/SalesHistoryPage')).SalesHistoryPage }),
+        // The detail opens as a modal over the history, so both stay mounted (PMC-25).
+        children: [
+          {
+            path: ':folio',
+            lazy: async () => ({ Component: (await import('../pages/SalesDetailPage')).SalesDetailPage }),
+          },
+        ],
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

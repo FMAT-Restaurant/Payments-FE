@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { ROLES } from '../auth/roles'
@@ -34,8 +34,8 @@ describe('module router', () => {
     const { router } = renderWithProviders(null, { routes, route: ROUTES.menu, token: makeUserToken(ROLES.CASHIER) })
 
     await user.click(screen.getByRole('link', { name: 'Historial de Ventas' }))
-    expect(router.state.location.pathname).toBe(ROUTES.salesHistory)
-    expect(screen.getByRole('heading', { name: 'Historial de Ventas' })).toBeInTheDocument()
+    await waitFor(() => expect(router.state.location.pathname).toBe(ROUTES.salesHistory))
+    expect(await screen.findByRole('heading', { name: 'Historial de Ventas' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('link', { name: /Regresar al Menú/ }))
     expect(router.state.location.pathname).toBe(ROUTES.menu)
