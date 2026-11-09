@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react'
 import { Link, Outlet } from 'react-router'
+import { CashShiftOpening } from '../../features/cash-shift/CashShiftOpening'
 import { cn } from '../../lib/cn'
 
 /**
@@ -10,15 +11,21 @@ export function ModuleLayout() {
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 tablet:px-6 tablet:py-8 desktop:px-8">
       <Outlet />
+      <CashShiftOpening />
     </main>
   )
 }
 
 /** Responsive grid: 4 columns on mobile, 8 on tablet (768-1199px), 12 on desktop (>=1200px). */
+const GRID_CLASSES = 'grid grid-cols-4 gap-4 tablet:grid-cols-8 tablet:gap-6 desktop:grid-cols-12'
+
 export function PageGrid({ className, ...props }: Readonly<ComponentProps<'div'>>) {
-  return (
-    <div className={cn('grid grid-cols-4 gap-4 tablet:grid-cols-8 tablet:gap-6 desktop:grid-cols-12', className)} {...props} />
-  )
+  return <div className={cn(GRID_CLASSES, className)} {...props} />
+}
+
+/** Same grid as `PageGrid`, as a real list for collections of cards (`<li>` children). */
+export function PageGridList({ className, ...props }: Readonly<ComponentProps<'ul'>>) {
+  return <ul className={cn(GRID_CLASSES, className)} {...props} />
 }
 
 export function BackLink({ to, children }: Readonly<{ to: string; children: string }>) {

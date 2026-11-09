@@ -13,3 +13,9 @@ export const ROUTES = {
 
 export const chargePath = (dinningSessionId: string): string =>
   ROUTES.charge.replace(':dinningSessionId', encodeURIComponent(dinningSessionId))
+
+/** Route metadata read with `useMatches()`. */
+export interface RouteHandle {
+  /** PMC-22 AC1: the screen needs an open cash shift; without one the opening modal blocks it. */
+  requiresCashShift?: boolean
+}
