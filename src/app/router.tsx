@@ -22,7 +22,10 @@ export const routes: RouteObject[] = [
       },
       // Form screens load on demand so the menu does not download zod and react-hook-form.
       { path: ROUTES.charge, lazy: async () => ({ Component: (await import('../pages/ChargePage')).ChargePage }) },
-      { path: ROUTES.cashShiftClose, element: <PendingPage title="Arqueo y Cierre de Turno" story="PMC-23" /> },
+      {
+        path: ROUTES.cashShiftClose,
+        lazy: async () => ({ Component: (await import('../pages/CashShiftClosePage')).CashShiftClosePage }),
+      },
       { path: ROUTES.salesHistory, element: <PendingPage title="Historial de Ventas" story="PMC-24" /> },
       { path: '*', element: <NotFoundPage /> },
     ],
