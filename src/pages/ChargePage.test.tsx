@@ -273,7 +273,8 @@ describe('PMC-20 · Procesar Pago', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
 
-    expect(router.state.location.pathname).toBe(ROUTES.cashTray)
+    // The tray is a lazy route (PMC-19), so the navigation settles once its chunk loads.
+    await waitFor(() => expect(router.state.location.pathname).toBe(ROUTES.cashTray))
   })
 
   it('explains when the account is no longer pending', async () => {

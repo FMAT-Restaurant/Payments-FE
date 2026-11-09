@@ -138,8 +138,9 @@ describe('PMC-21 · Confirmación post-cobro e impresión de ticket térmico', (
     expect(contentRef?.current).toBe(receipt)
 
     await user.click(within(dialog).getByRole('button', { name: 'Volver a bandeja' }))
-    expect(router.state.location.pathname).toBe(ROUTES.cashTray)
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // The tray is a lazy route (PMC-19), so the navigation settles once its chunk loads.
+    await waitFor(() => expect(router.state.location.pathname).toBe(ROUTES.cashTray))
+    expect(screen.queryByRole('dialog', { name: `Transacción #${FOLIO}` })).not.toBeInTheDocument()
   })
 
   it('still shows the change when the receipt fails, and lets the cashier retry it', async () => {
