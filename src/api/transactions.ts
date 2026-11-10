@@ -1,5 +1,5 @@
 import { httpClient } from './client'
-import { fromWireMethod } from './contracts/charge'
+import { fromWirePayments } from './contracts/charge'
 import type { TransactionDetailDTO, TransactionDetailWire } from './contracts/sales'
 import { endpoints } from './endpoints'
 
@@ -16,11 +16,7 @@ export function toTransactionDetail(wire: TransactionDetailWire): TransactionDet
     total: wire.total,
     change_given: wire.change_given,
     items: wire.items,
-    payment_breakdowns: wire.payment_breakdowns.map((payment) => ({
-      payment_method: fromWireMethod(payment.method),
-      amount: payment.amount,
-      authorization_reference: payment.authorization_reference ?? null,
-    })),
+    payment_breakdowns: fromWirePayments(wire.payment_breakdowns, wire.change_given),
   }
 }
 

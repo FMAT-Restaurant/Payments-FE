@@ -30,7 +30,7 @@ export function transactionDetailFixture(row: SalesHistoryItemWire): Transaction
     items,
     payment_breakdowns: isCardOnly
       ? [{ method: 'TARJETA_CREDITO', amount: total, authorization_reference: 'AUTH-987654' }]
-      : [{ method: 'EFECTIVO', amount: received, authorization_reference: null }],
+      : [{ method: 'EFECTIVO', amount: total, authorization_reference: null }],
   }
 }
 

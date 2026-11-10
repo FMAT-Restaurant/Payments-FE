@@ -1,3 +1,5 @@
+import { roundMoney } from '../../lib/money'
+
 /** Charge contract of PMC-20 (`POST /api/v1/payments/charge`). Models in English, payload in snake_case. */
 export const PAYMENT_METHODS = ['CASH', 'CREDIT_CARD', 'DEBIT_CARD'] as const
 
@@ -56,4 +58,25 @@ export interface ChargeResponseWire {
   change_given: number
   estado: string
   mensaje: string
+}
+
+/**
+ * Payments-BE stores the cash applied to the bill; the screens show the cash received (applied + change).
+ * Maps the wire payments of a sale, adding the change to its first cash line.
+ */
+export function fromWirePayments(
+  payments: Array<{ method: string; amount: number; authorization_reference?: string | null }>,
+  changeGiven: number,
+) {
+  let changePending = changeGiven
+  return payments.map((payment) => {
+    const method = fromWireMethod(payment.method)
+    const change = method === 'CASH' ? changePending : 0
+    if (method === 'CASH') changePending = 0
+    return {
+      payment_method: method,
+      amount: roundMoney(payment.amount + change),
+      authorization_reference: payment.authorization_reference ?? null,
+    }
+  })
 }

@@ -74,7 +74,7 @@ const ticketWire: TicketReceiptWire = {
   items: ticket.items,
   ...ticket.totals,
   payments: [
-    { method: 'EFECTIVO', amount: 200, authorization_reference: null },
+    { method: 'EFECTIVO', amount: 173.47, authorization_reference: null },
     { method: 'TARJETA_CREDITO', amount: 100, authorization_reference: 'AUTH-987654' },
   ],
 }

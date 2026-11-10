@@ -223,7 +223,8 @@ export const handlers: HttpHandler[] = [
       tip: body.tip,
       total,
       change_given: change,
-      payments: body.payments,
+      // Like the Backend: the cash line keeps the amount applied, not the cash received.
+      payments: body.payments.map((p) => (p.method === CASH ? { ...p, amount: roundMoney(p.amount - change) } : p)),
     })
 
     const response: ChargeResponseWire = {
