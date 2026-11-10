@@ -82,16 +82,23 @@ describe('wire mappers of Payments-BE', () => {
       taxes: 16,
       tip: 5,
       total: 121,
-      change_given: 0,
+      change_given: 9,
       items: [{ dish_name: 'Tacos', quantity: 2, unit_price: 50, amount: 100 }],
-      payment_breakdowns: [{ method: 'TARJETA_CREDITO', amount: 121, authorization_reference: 'AUTH-1' }],
+      // The cash line comes as applied ($21); the screen shows the $30 received.
+      payment_breakdowns: [
+        { method: 'TARJETA_CREDITO', amount: 100, authorization_reference: 'AUTH-1' },
+        { method: 'EFECTIVO', amount: 21, authorization_reference: null },
+      ],
     })
     expect(detail).toMatchObject({
       id: 'TX-1',
       status: 'COMPLETED',
       tip: 5,
       items: [{ dish_name: 'Tacos', quantity: 2, unit_price: 50, amount: 100 }],
-      payment_breakdowns: [{ payment_method: 'CREDIT_CARD', amount: 121, authorization_reference: 'AUTH-1' }],
+      payment_breakdowns: [
+        { payment_method: 'CREDIT_CARD', amount: 100, authorization_reference: 'AUTH-1' },
+        { payment_method: 'CASH', amount: 30, authorization_reference: null },
+      ],
     })
   })
 
@@ -108,7 +115,8 @@ describe('wire mappers of Payments-BE', () => {
       tip: 0,
       total: 116,
       change_given: 34,
-      payments: [{ method: 'EFECTIVO', amount: 150 }],
+      // Payments-BE sends the cash applied (116); the receipt shows the cash received (116 + 34 of change).
+      payments: [{ method: 'EFECTIVO', amount: 116 }, { method: 'TARJETA_DEBITO', amount: 10, authorization_reference: 'A-1' }],
     })
     expect(ticket.header).toEqual({
       restaurant_name: 'FMAT',
@@ -117,6 +125,6 @@ describe('wire mappers of Payments-BE', () => {
       table_name: '',
       cashier_name: 'Ana',
     })
-    expect(ticket.totals).toMatchObject({ total: 116, change_given: 34, payments: [{ payment_method: 'CASH', amount: 150 }] })
+    expect(ticket.totals).toMatchObject({ total: 116, change_given: 34, payments: [{ payment_method: 'CASH', amount: 150 }, { payment_method: 'DEBIT_CARD', amount: 10 }] })
   })
 })

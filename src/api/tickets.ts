@@ -1,5 +1,5 @@
 import { httpClient } from './client'
-import { fromWireMethod } from './contracts/charge'
+import { fromWirePayments } from './contracts/charge'
 import type { TicketReceiptDTO, TicketReceiptWire } from './contracts/ticket'
 import { endpoints } from './endpoints'
 
@@ -18,11 +18,7 @@ export const toTicketReceipt = (wire: TicketReceiptWire): TicketReceiptDTO => ({
     tip: wire.tip,
     total: wire.total,
     change_given: wire.change_given,
-    payments: wire.payments.map((payment) => ({
-      payment_method: fromWireMethod(payment.method),
-      amount: payment.amount,
-      authorization_reference: payment.authorization_reference ?? null,
-    })),
+    payments: fromWirePayments(wire.payments, wire.change_given),
   },
 })
 
