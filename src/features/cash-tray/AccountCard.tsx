@@ -31,7 +31,8 @@ export function AccountCard({ account, now }: Readonly<{ account: PendingAccount
       <div className="mt-auto">
         <p className="text-h2 text-ink">{formatCurrency(account.totals.expected_total)}</p>
         <p className="text-small text-muted">
-          {formatItemCount(itemCount(account))} • {preAccountStatusLabel(account.pre_account_status)}
+          {formatItemCount(itemCount(account))}
+          {account.pre_account_status && ` • ${preAccountStatusLabel(account.pre_account_status)}`}
         </p>
       </div>
 

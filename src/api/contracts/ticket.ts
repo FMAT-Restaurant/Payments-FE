@@ -31,3 +31,20 @@ export interface TicketReceiptDTO {
     change_given: number
   }
 }
+
+/** Wire shape of Payments-BE: flat, without the `header` and `totals` blocks. */
+export interface TicketReceiptWire {
+  restaurant_name: string
+  folio: string
+  /** ISO-8601 */
+  paid_at: string
+  table_name?: string | null
+  cashier_name?: string | null
+  items: TicketItemDTO[]
+  subtotal: number
+  taxes: number
+  tip: number
+  total: number
+  change_given: number
+  payments: Array<{ method: string; amount: number; authorization_reference?: string | null }>
+}

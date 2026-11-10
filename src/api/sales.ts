@@ -1,12 +1,16 @@
 import { httpClient } from './client'
+import { fromWireMethod } from './contracts/charge'
 import type {
   SalesExportQuery,
   SalesHistoryItemDTO,
+  SalesHistoryItemWire,
   SalesHistoryPageDTO,
   SalesHistoryPageWire,
   SalesHistoryQuery,
 } from './contracts/sales'
 import { endpoints } from './endpoints'
+
+export const MIXED_PAYMENT_METHOD = 'MIXED'
 
 /**
  * The story shows `page_index=0` but the Backend validates `page_index > 0`: the UI keeps the
@@ -25,11 +29,18 @@ export function toSalesHistoryPage(wire: SalesHistoryPageWire): SalesHistoryPage
         folio: row.folio,
         total: row.total,
         status: 'COMPLETED',
-        paid_at: row.fecha_cobro,
-        payment_method: row.metodo_pago ?? null,
+        paid_at: row.paid_at,
+        payment_method: historyPaymentMethod(row.payment_breakdowns),
       }),
     ),
   }
+}
+
+/** One method for the "Método de pago" column: the method itself, or MIXED when the sale was split. */
+export function historyPaymentMethod(breakdowns: SalesHistoryItemWire['payment_breakdowns']): string | null {
+  const methods = [...new Set(breakdowns.map((payment) => fromWireMethod(payment.method)))]
+  if (methods.length === 0) return null
+  return methods.length === 1 ? methods[0] : MIXED_PAYMENT_METHOD
 }
 
 /** PMC-24 AC4: paginated history. The screen renders its own error state, so no toast per request. */

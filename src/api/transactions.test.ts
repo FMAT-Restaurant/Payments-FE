@@ -1,40 +1,122 @@
 import { describe, expect, it } from 'vitest'
-import type { TransactionDetailWire } from './contracts/sales'
+import { toCashShift, toCashShiftSummary } from './cashShifts'
+import { toChargeRequestWire, toChargeResponse } from './charge'
+import { fromWireMethod } from './contracts/charge'
+import { toPendingAccount } from './pendingAccounts'
+import { historyPaymentMethod, MIXED_PAYMENT_METHOD } from './sales'
+import { toTicketReceipt } from './tickets'
 import { toTransactionDetail } from './transactions'
 
-const base: TransactionDetailWire = {
-  folio: 'TX-1',
-  total: 116,
-  estado: 'COMPLETED',
-  detalles: [{ nombre_platillo: 'Tacos', cantidad: 2, precio_unitario: 50, importe: 100 }],
-  desgloses: [{ metodo_pago: 'CASH', monto: 150 }],
-}
+describe('wire mappers of Payments-BE', () => {
+  it('translates the payment methods both ways and passes unknown ones through', () => {
+    expect(fromWireMethod('TARJETA_DEBITO')).toBe('DEBIT_CARD')
+    expect(fromWireMethod('VALES')).toBe('VALES')
+    expect(
+      toChargeRequestWire({
+        dinning_session_id: 's-1',
+        tip: 10,
+        payments: [
+          { payment_method: 'CASH', amount: 100, authorization_reference: null },
+          { payment_method: 'CREDIT_CARD', amount: 50, authorization_reference: 'AUTH-1' },
+        ],
+      }).payments,
+    ).toEqual([
+      { method: 'EFECTIVO', amount: 100, authorization_reference: null },
+      { method: 'TARJETA_CREDITO', amount: 50, authorization_reference: 'AUTH-1' },
+    ])
+  })
 
-describe('toTransactionDetail', () => {
-  it('translates the Backend names to the contract of the story', () => {
-    const detail = toTransactionDetail({
-      ...base,
-      fecha_cobro: '2026-09-08T20:30:00Z',
-      subtotal: 100,
-      impuestos: 16,
-      propina: 5,
-      cambio_entregado: 34,
-      desgloses: [{ metodo_pago: 'CREDIT_CARD', monto: 116, referencia_autorizacion: 'AUTH-1' }],
-    })
-    expect(detail).toMatchObject({
+  it('reads the Spanish charge response', () => {
+    expect(toChargeResponse({ folio: 'TX-1', total: 230, change_given: 20, estado: 'COMPLETADO', mensaje: 'OK' })).toEqual({
       folio: 'TX-1',
-      paid_at: '2026-09-08T20:30:00Z',
+      total: 230,
+      change_delivered: 20,
       status: 'COMPLETED',
-      subtotal: 100,
-      taxes: 16,
-      tip: 5,
-      change_given: 34,
-      items: [{ dish_name: 'Tacos', quantity: 2, unit_price: 50, amount: 100 }],
-      payment_breakdowns: [{ payment_method: 'CREDIT_CARD', amount: 116, authorization_reference: 'AUTH-1' }],
+      message: 'OK',
     })
   })
 
-  it('derives what the Backend has not published yet', () => {
-    expect(toTransactionDetail(base)).toMatchObject({ paid_at: '', subtotal: 100, taxes: 0, tip: 0, change_given: 34 })
+  it('nests the flat totals of a pending account', () => {
+    const account = toPendingAccount({
+      dinning_session_id: 's-1',
+      order_folio: '#ORD-1',
+      timestamp: '2026-11-10T00:00:00Z',
+      items: [],
+      subtotal: 100,
+      taxes: 16,
+      total: 116,
+    })
+    expect(account.totals).toEqual({ subtotal: 100, taxes: 16, expected_total: 116 })
+    expect(account.pre_account_status).toBeUndefined()
+  })
+
+  it('maps the opening fund and derives the cash sales of the shift', () => {
+    expect(toCashShift({ cash_shift_id: 'c-1', opened_at: 'x', opening_float: 500 }).initial_amount).toBe(500)
+    expect(
+      toCashShiftSummary({
+        cash_shift_id: 'c-1',
+        opened_at: 'x',
+        opening_float: 1000,
+        expected_cash: 4250.1,
+        card_total: 8140,
+        card_transaction_count: 3,
+        retained_tips: 40,
+      }),
+    ).toMatchObject({ initial_amount: 1000, cash_sales: 3250.1, card_sales: 8140 })
+  })
+
+  it('collapses the history breakdowns into one method', () => {
+    expect(historyPaymentMethod([])).toBeNull()
+    expect(historyPaymentMethod([{ method: 'EFECTIVO', amount: 1 }, { method: 'EFECTIVO', amount: 2 }])).toBe('CASH')
+    expect(historyPaymentMethod([{ method: 'EFECTIVO', amount: 1 }, { method: 'TARJETA_CREDITO', amount: 2 }])).toBe(
+      MIXED_PAYMENT_METHOD,
+    )
+  })
+
+  it('maps the sale detail', () => {
+    const detail = toTransactionDetail({
+      folio: 'TX-1',
+      status: 'COMPLETADO',
+      paid_at: '2026-09-08T20:30:00Z',
+      subtotal: 100,
+      taxes: 16,
+      tip: 5,
+      total: 121,
+      change_given: 0,
+      items: [{ dish_name: 'Tacos', quantity: 2, unit_price: 50, amount: 100 }],
+      payment_breakdowns: [{ method: 'TARJETA_CREDITO', amount: 121, authorization_reference: 'AUTH-1' }],
+    })
+    expect(detail).toMatchObject({
+      id: 'TX-1',
+      status: 'COMPLETED',
+      tip: 5,
+      items: [{ dish_name: 'Tacos', quantity: 2, unit_price: 50, amount: 100 }],
+      payment_breakdowns: [{ payment_method: 'CREDIT_CARD', amount: 121, authorization_reference: 'AUTH-1' }],
+    })
+  })
+
+  it('rebuilds the header and totals blocks of the flat ticket', () => {
+    const ticket = toTicketReceipt({
+      restaurant_name: 'FMAT',
+      folio: 'TX-1',
+      paid_at: '2026-09-08T20:30:00Z',
+      table_name: null,
+      cashier_name: 'Ana',
+      items: [],
+      subtotal: 100,
+      taxes: 16,
+      tip: 0,
+      total: 116,
+      change_given: 34,
+      payments: [{ method: 'EFECTIVO', amount: 150 }],
+    })
+    expect(ticket.header).toEqual({
+      restaurant_name: 'FMAT',
+      folio: 'TX-1',
+      payment_date: '2026-09-08T20:30:00Z',
+      table_name: '',
+      cashier_name: 'Ana',
+    })
+    expect(ticket.totals).toMatchObject({ total: 116, change_given: 34, payments: [{ payment_method: 'CASH', amount: 150 }] })
   })
 })

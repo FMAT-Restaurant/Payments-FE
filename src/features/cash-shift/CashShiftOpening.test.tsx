@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { CashShiftDTO } from '../../api/contracts/cashShift'
+import type { CashShiftWire } from '../../api/contracts/cashShift'
 import { routes } from '../../app/router'
 import { ROUTES } from '../../app/routes'
 import { ROLES } from '../../auth/roles'
@@ -14,11 +14,11 @@ import { INITIAL_AMOUNT_MESSAGE } from './CashShiftOpeningModal'
 
 const url = (path: string) => new URL(`/api/v1/payments${path}`, window.location.origin).toString()
 
-const activeShift: CashShiftDTO = {
+const activeShift: CashShiftWire = {
   cash_shift_id: 'cs-1',
   cashier_name: 'Edwing Molina',
   opened_at: '2026-11-08T08:00:00Z',
-  initial_amount: 1000,
+  opening_float: 1000,
 }
 
 interface MockOptions {
@@ -84,7 +84,7 @@ describe('PMC-22 · Apertura de turno de caja', () => {
     await user.click(openButton)
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(calls.openBodies).toEqual([{ initial_amount: 1000 }])
+    expect(calls.openBodies).toEqual([{ opening_float: 1000 }])
     expect(await screen.findByText('Cajero Activo: Edwing Molina')).toBeInTheDocument()
   })
 

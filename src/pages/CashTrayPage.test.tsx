@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { PendingAccountCardDTO } from '../api/contracts/pendingAccounts'
+import type { PendingAccountWire } from '../api/contracts/pendingAccounts'
 import { endpoints } from '../api/endpoints'
 import { routes } from '../app/router'
 import { chargePath, ROUTES } from '../app/routes'
@@ -14,59 +14,57 @@ import { makeUserToken, renderWithProviders } from '../test/utils'
 const url = (path: string) => new URL(`/api/v1/payments${path}`, window.location.origin).toString()
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString()
 
-const mesa04: PendingAccountCardDTO = {
+const mesa04: PendingAccountWire = {
   dinning_session_id: '3f2b8c1e-7a4d-4e9b-b1c2-9d8e7f6a5b40',
   order_folio: '#ORD-9938',
   table_name: 'Mesa 04',
   waiter_name: 'Carlos R.',
   timestamp: minutesAgo(2),
-  pre_account_status: 'ACCOUNT_REQUESTED',
   items: [
     { dish_id: 'd-101', name: 'Tacos al Pastor', quantity: 2, unit_price: 60, amount: 120 },
     { dish_id: 'd-205', name: 'Cerveza Artesanal', quantity: 1, unit_price: 85, amount: 85 },
   ],
-  totals: { subtotal: 205, taxes: 32.8, expected_total: 237.8 },
+  subtotal: 205, taxes: 32.8, total: 237.8,
 }
 
-const mesa12: PendingAccountCardDTO = {
+const mesa12: PendingAccountWire = {
   ...mesa04,
   dinning_session_id: 'c0a8e1f2-0000-4000-8000-000000000012',
   order_folio: '#ORD-9939',
   table_name: 'Mesa 12',
   waiter_name: 'Ana M.',
   timestamp: minutesAgo(17),
-  pre_account_status: 'PRE_ACCOUNT_PRINTED',
-  totals: { subtotal: 1250, taxes: 200, expected_total: 1450 },
+  subtotal: 1250, taxes: 200, total: 1450,
 }
 
-const barra02: PendingAccountCardDTO = {
+const barra02: PendingAccountWire = {
   ...mesa04,
   dinning_session_id: 'd1b9f203-0000-4000-8000-000000000002',
   order_folio: '#ORD-9940',
   table_name: 'Barra 02',
   waiter_name: 'Luis T.',
   timestamp: minutesAgo(6),
-  totals: { subtotal: 276.5, taxes: 44.0, expected_total: 320.5 },
+  subtotal: 276.5, taxes: 44.0, total: 320.5,
 }
 
-const sinNombres: PendingAccountCardDTO = {
+const sinNombres: PendingAccountWire = {
   ...mesa04,
   dinning_session_id: 'a91c4e27-5d3b-4f60-8e2a-6b7c1d0e9f12',
   order_folio: '#ORD-9941',
   table_name: null,
   waiter_name: null,
-  totals: { subtotal: 150, taxes: 24, expected_total: 174 },
+  subtotal: 150, taxes: 24, total: 174,
 }
 
 const openShift = {
   cash_shift_id: 'cs-1',
   cashier_name: 'Edwing Molina',
   opened_at: new Date().toISOString(),
-  initial_amount: 1000,
+  opening_float: 1000,
 }
 
 /** Serves one list per polling cycle; the last one repeats. */
-function mockPendings(...cycles: PendingAccountCardDTO[][]) {
+function mockPendings(...cycles: PendingAccountWire[][]) {
   const state = { calls: 0 }
   server.use(
     http.get(url('/pendings'), () => HttpResponse.json(cycles[Math.min(state.calls++, cycles.length - 1)])),
@@ -106,7 +104,8 @@ describe('PMC-19 · Bandeja de Caja', () => {
     expect(card.getByText(/^Hace \d+ min$/)).toBeInTheDocument()
     expect(card.getByText('Mesero: Carlos R.')).toBeInTheDocument()
     expect(card.getByText('$237.80')).toBeInTheDocument()
-    expect(card.getByText('3 artículos • Cuenta solicitada')).toBeInTheDocument()
+    // Payments-BE does not send the pre-account status, so the card only shows the item count.
+    expect(card.getByText('3 artículos')).toBeInTheDocument()
     expect(card.getByRole('button', { name: 'Procesar cobro' })).toBeEnabled()
   })
 
@@ -143,7 +142,7 @@ describe('PMC-19 · Bandeja de Caja', () => {
   })
 
   it('Scenario 2: a modified account updates in place without duplicating the card', async () => {
-    const before = { ...mesa04, items: [mesa04.items[0]], totals: { subtotal: 120, taxes: 19.2, expected_total: 139.2 } }
+    const before = { ...mesa04, items: [mesa04.items[0]], subtotal: 120, taxes: 19.2, total: 139.2 }
     mockPendings([before], [mesa04])
     await renderTray()
     expect(await screen.findByText('$139.20')).toBeInTheDocument()

@@ -74,3 +74,19 @@ export interface ForceCloseCashShiftResponseDTO {
   difference?: number
   message?: string
 }
+
+/** Wire shapes of Payments-BE: the fund travels as `opening_float`; the summary has no `cash_sales`. */
+export interface OpenCashShiftRequestWire {
+  opening_float: number
+}
+
+export interface CashShiftWire extends Omit<CashShiftDTO, 'initial_amount'> {
+  opening_float: number
+}
+
+export interface CashShiftSummaryWire extends Omit<CashShiftSummaryDTO, 'initial_amount' | 'cash_sales' | 'card_sales'> {
+  opening_float: number
+  card_total: number
+  status?: string
+  calculated_at?: string
+}

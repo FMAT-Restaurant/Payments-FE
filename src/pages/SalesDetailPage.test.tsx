@@ -53,10 +53,15 @@ describe('PMC-25 · Detalle de venta y reimpresión', () => {
       http.get(url(`/${FOLIO}`), () =>
         HttpResponse.json({
           folio: FOLIO,
+          status: 'COMPLETADO',
+          paid_at: '2026-09-08T20:30:00Z',
+          subtotal: 100,
+          taxes: 16,
+          tip: 0,
           total: 116,
-          estado: 'COMPLETED',
-          detalles: [{ nombre_platillo: 'Tacos', cantidad: 1, precio_unitario: 100, importe: 100 }],
-          desgloses: [{ metodo_pago: 'CREDIT_CARD', monto: 116, referencia_autorizacion: 'AUTH-987654' }],
+          change_given: 0,
+          items: [{ dish_name: 'Tacos', quantity: 1, unit_price: 100, amount: 100 }],
+          payment_breakdowns: [{ method: 'TARJETA_CREDITO', amount: 116, authorization_reference: 'AUTH-987654' }],
         }),
       ),
     )

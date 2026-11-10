@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { CashShiftSummaryDTO, CloseCashShiftRequestDTO } from '../api/contracts/cashShift'
+import type { CashShiftSummaryWire, CloseCashShiftRequestDTO } from '../api/contracts/cashShift'
 import { endpoints } from '../api/endpoints'
 import { routes } from '../app/router'
 import { ROUTES } from '../app/routes'
@@ -13,21 +13,20 @@ import { makeUserToken, renderWithProviders } from '../test/utils'
 
 const url = (path: string) => new URL(`/api/v1/payments${path}`, window.location.origin).toString()
 
-const summary: CashShiftSummaryDTO = {
+const summary: CashShiftSummaryWire = {
   cash_shift_id: 'cs-1',
   cashier_name: 'Edwing Molina',
   opened_at: new Date(2026, 10, 8, 8, 0).toISOString(),
-  initial_amount: 1000,
-  cash_sales: 3250,
+  opening_float: 1000,
   expected_cash: 4250,
-  card_sales: 8140,
+  card_total: 8140,
   card_transaction_count: 24,
   retained_tips: 814,
 }
 
 type CloseAnswer = 'ok' | { status: number; code: string; message: string }
 
-function mockApi({ shift = summary as CashShiftSummaryDTO | null, close = 'ok' as CloseAnswer } = {}) {
+function mockApi({ shift = summary as CashShiftSummaryWire | null, close = 'ok' as CloseAnswer } = {}) {
   const calls = { closeBodies: [] as CloseCashShiftRequestDTO[] }
   server.use(
     http.get(url(endpoints.cashShiftSummary()), () =>

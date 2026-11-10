@@ -1,14 +1,14 @@
 import { http, HttpResponse, type HttpHandler } from 'msw'
 import type {
-  CashShiftDTO,
-  CashShiftSummaryDTO,
+  CashShiftSummaryWire,
+  CashShiftWire,
   CloseCashShiftRequestDTO,
   ForceCloseCashShiftRequestDTO,
   OpenCashShiftItemDTO,
-  OpenCashShiftRequestDTO,
+  OpenCashShiftRequestWire,
 } from '../api/contracts/cashShift'
-import type { ChargeRequestDTO, ChargeResponseDTO } from '../api/contracts/charge'
-import type { TicketReceiptDTO } from '../api/contracts/ticket'
+import type { ChargeRequestWire, ChargeResponseWire } from '../api/contracts/charge'
+import type { TicketReceiptWire } from '../api/contracts/ticket'
 import { endpoints } from '../api/endpoints'
 import { roundMoney } from '../lib/money'
 import { apiUrl } from './apiUrl'
@@ -17,35 +17,37 @@ import { salesHistoryFixture } from './fixtures/salesHistory'
 import { ticketFixture, transactionDetailFixture } from './fixtures/transactionDetail'
 
 /**
- * Mock Service Worker handlers for the endpoints the Backend has not published yet or whose
- * contract is still being aligned. They follow the `{ code, message }` error contract.
+ * Mock Service Worker handlers that answer with the wire shapes of Payments-BE (`qa`),
+ * so the mappers of `src/api` run the same way against the mocks and the real Backend.
+ * They follow the `{ code, message }` error contract.
  */
 const pendingAccounts = pendingAccountsFixture()
 const salesHistory = salesHistoryFixture()
 
 const error = (status: number, code: string, message: string) => HttpResponse.json({ code, message }, { status })
 
+const CASH = 'EFECTIVO'
+
 let folioSequence = 1
-const tickets = new Map<string, TicketReceiptDTO>()
+const tickets = new Map<string, TicketReceiptWire>()
 /** The demo session starts without an open shift, so the opening flow of PMC-22 can be tried. */
-let openShift: CashShiftDTO | null = null
+let openShift: CashShiftWire | null = null
 
 /** Running totals of the open shift (PMC-23), updated by every mocked charge. */
 const emptyTotals = () => ({ cashSales: 0, cardSales: 0, cardTransactions: 0, retainedTips: 0 })
 let shiftTotals = emptyTotals()
 
 /** PMC-31: shifts of other cashiers, visible to Administrador / Gerente. Force-closing one removes it. */
-const supervisedShifts = (): Array<{ shift: OpenCashShiftItemDTO; summary: CashShiftSummaryDTO }> => {
+const supervisedShifts = (): Array<{ shift: OpenCashShiftItemDTO; summary: CashShiftSummaryWire }> => {
   const make = (id: string, name: string, openedAt: string, float: number, cash: number, card: number, count: number, tips: number) => ({
     shift: { cash_shift_id: id, cashier_name: name, opened_at: openedAt, opening_float: float },
     summary: {
       cash_shift_id: id,
       cashier_name: name,
       opened_at: openedAt,
-      initial_amount: float,
-      cash_sales: cash,
+      opening_float: float,
       expected_cash: roundMoney(float + cash),
-      card_sales: card,
+      card_total: card,
       card_transaction_count: count,
       retained_tips: tips,
     },
@@ -64,7 +66,7 @@ const inRange = (iso: string, start: string | null, end: string | null): boolean
 }
 
 const csvOf = (rows: typeof salesHistory): string =>
-  ['folio,total,estado,fecha_cobro', ...rows.map((row) => `${row.folio},${row.total},${row.estado},${row.fecha_cobro}`)].join('\n')
+  ['folio,total,status,paid_at', ...rows.map((row) => `${row.folio},${row.total},${row.status},${row.paid_at}`)].join('\n')
 
 export const handlers: HttpHandler[] = [
   // PMC-19: accounts of the cash tray (polled). Charged accounts leave the list.
@@ -73,70 +75,67 @@ export const handlers: HttpHandler[] = [
   // PMC-20: account of the "Procesar Pago" screen.
   http.get(apiUrl('/pendings/:dinningSessionId'), ({ params }) => {
     const account = pendingAccounts.find((item) => item.dinning_session_id === params.dinningSessionId)
-    return account ? HttpResponse.json(account) : error(404, 'BILL_NOT_FOUND', 'La cuenta no existe o ya fue cobrada')
+    return account ? HttpResponse.json(account) : error(404, 'SESSION_NOT_FOUND', 'La cuenta no existe o ya fue cobrada')
   }),
 
   // PMC-22: shift of the logged-in cashier.
   http.get(apiUrl(endpoints.myCashShift()), () =>
-    openShift ? HttpResponse.json(openShift) : error(404, 'CASH_SHIFT_NOT_FOUND', 'No tienes un turno de caja abierto'),
+    openShift ? HttpResponse.json(openShift) : error(404, 'CASH_SHIFT_NOT_OPEN', 'No tienes un turno de caja abierto'),
   ),
 
   // PMC-22: opening with the declared fund.
   http.post(apiUrl(endpoints.openCashShift()), async ({ request }) => {
-    const body = (await request.json()) as OpenCashShiftRequestDTO
+    const body = (await request.json()) as OpenCashShiftRequestWire
     if (openShift) {
       return error(409, 'CASH_SHIFT_ALREADY_OPEN', 'Ya tienes un turno de caja abierto en otra sesión')
     }
-    if (typeof body.initial_amount !== 'number' || body.initial_amount < 0) {
+    if (typeof body.opening_float !== 'number' || body.opening_float < 0) {
       return error(400, 'VALIDATION_ERROR', 'El fondo inicial debe ser mayor o igual a 0.')
     }
     openShift = {
       cash_shift_id: crypto.randomUUID(),
-      cashier_name: 'Edwing Molina',
       opened_at: new Date().toISOString(),
-      initial_amount: body.initial_amount,
+      opening_float: body.opening_float,
     }
     shiftTotals = emptyTotals()
     return HttpResponse.json(
-      { cash_shift_id: openShift.cash_shift_id, status: 'OPEN', message: 'Turno de caja abierto' },
+      { cash_shift_id: openShift.cash_shift_id, status: 'ABIERTO', message: 'Turno de caja abierto' },
       { status: 201 },
     )
   }),
 
   // PMC-23: real-time reconciliation of the open shift.
   http.get(apiUrl(endpoints.cashShiftSummary()), () => {
-    if (!openShift) return error(404, 'CASH_SHIFT_NOT_FOUND', 'No tienes un turno de caja abierto')
-    const summary: CashShiftSummaryDTO = {
+    if (!openShift) return error(404, 'CASH_SHIFT_NOT_OPEN', 'No tienes un turno de caja abierto')
+    const summary: CashShiftSummaryWire = {
       cash_shift_id: openShift.cash_shift_id,
-      cashier_name: openShift.cashier_name,
+      cashier_name: 'Edwing Molina',
       opened_at: openShift.opened_at,
-      initial_amount: openShift.initial_amount,
-      cash_sales: roundMoney(shiftTotals.cashSales),
-      expected_cash: roundMoney(openShift.initial_amount + shiftTotals.cashSales),
-      card_sales: roundMoney(shiftTotals.cardSales),
+      opening_float: openShift.opening_float,
+      expected_cash: roundMoney(openShift.opening_float + shiftTotals.cashSales),
+      card_total: roundMoney(shiftTotals.cardSales),
       card_transaction_count: shiftTotals.cardTransactions,
       retained_tips: roundMoney(shiftTotals.retainedTips),
+      status: 'ABIERTO',
+      calculated_at: new Date().toISOString(),
     }
     return HttpResponse.json(summary)
   }),
 
-  // PMC-23: closing needs the reason whenever the declared cash differs from the expected cash.
+  // PMC-23: the Backend accepts the close with or without a reason.
   http.post(apiUrl(endpoints.closeCashShift()), async ({ request }) => {
-    if (!openShift) return error(404, 'CASH_SHIFT_NOT_FOUND', 'No tienes un turno de caja abierto')
+    if (!openShift) return error(422, 'CASH_SHIFT_NOT_OPEN', 'No tienes un turno de caja abierto')
     const body = (await request.json()) as CloseCashShiftRequestDTO
     if (typeof body.declared_cash !== 'number' || body.declared_cash < 0) {
       return error(400, 'VALIDATION_ERROR', 'El efectivo declarado debe ser mayor o igual a 0.')
     }
-    const expected = roundMoney(openShift.initial_amount + shiftTotals.cashSales)
+    const expected = roundMoney(openShift.opening_float + shiftTotals.cashSales)
     const difference = roundMoney(body.declared_cash - expected)
-    if (difference !== 0 && !body.reason?.trim()) {
-      return error(400, 'VALIDATION_ERROR', 'El motivo es obligatorio cuando hay diferencia.')
-    }
     const closed = openShift
     openShift = null
     return HttpResponse.json({
       cash_shift_id: closed.cash_shift_id,
-      status: difference === 0 ? 'CLOSED' : 'UNBALANCED',
+      status: difference === 0 ? 'CERRADO' : 'DESCUADRADO',
       difference,
       message: difference === 0 ? 'Turno cerrado' : 'Turno cerrado con descuadre',
     })
@@ -166,7 +165,7 @@ export const handlers: HttpHandler[] = [
     supervised = supervised.filter((item) => item !== found)
     return HttpResponse.json({
       cash_shift_id: found.shift.cash_shift_id,
-      status: difference === 0 ? 'CLOSED' : 'UNBALANCED',
+      status: difference === 0 ? 'CERRADO' : 'DESCUADRADO',
       difference,
       message: difference === 0 ? 'Turno cerrado' : 'Turno cerrado con descuadre',
     })
@@ -175,21 +174,21 @@ export const handlers: HttpHandler[] = [
   // PMC-20: charge with the same business rules as the Backend.
   http.post(apiUrl(endpoints.charge()), async ({ request }) => {
     if (!openShift) return error(403, 'CASH_SHIFT_NOT_OPEN', 'Debe abrir caja antes de cobrar')
-    const body = (await request.json()) as ChargeRequestDTO
+    const body = (await request.json()) as ChargeRequestWire
     const index = pendingAccounts.findIndex((item) => item.dinning_session_id === body.dinning_session_id)
-    if (index === -1) return error(404, 'BILL_NOT_FOUND', 'La cuenta no existe o ya fue cobrada')
+    if (index === -1) return error(404, 'SESSION_NOT_FOUND', 'La cuenta no existe o ya fue cobrada')
 
-    const total = roundMoney(pendingAccounts[index].totals.expected_total + body.tip)
-    const cards = roundMoney(body.payments.filter((p) => p.payment_method !== 'CASH').reduce((s, p) => s + p.amount, 0))
+    const total = roundMoney(pendingAccounts[index].total + body.tip)
+    const cards = roundMoney(body.payments.filter((p) => p.method !== CASH).reduce((s, p) => s + p.amount, 0))
     const paid = roundMoney(body.payments.reduce((s, p) => s + p.amount, 0))
 
-    if (body.payments.some((p) => p.payment_method !== 'CASH' && !p.authorization_reference)) {
+    if (body.payments.some((p) => p.method !== CASH && !p.authorization_reference)) {
       return error(422, 'AUTHORIZATION_REFERENCE_REQUIRED', 'La referencia de autorización es obligatoria')
     }
     if (cards > total) {
       return error(422, 'CARD_AMOUNT_EXCEEDS_BALANCE', 'Los pagos con tarjeta no pueden exceder el total de la cuenta')
     }
-    if (cards === total && body.payments.some((p) => p.payment_method === 'CASH')) {
+    if (cards === total && body.payments.some((p) => p.method === CASH)) {
       return error(422, 'CARD_COVERS_FULL_AMOUNT', 'La tarjeta cubre el total; no se admite efectivo adicional')
     }
     if (paid < total) {
@@ -197,7 +196,7 @@ export const handlers: HttpHandler[] = [
     }
 
     const [account] = pendingAccounts.splice(index, 1)
-    const cashPaid = roundMoney(body.payments.filter((p) => p.payment_method === 'CASH').reduce((s, p) => s + p.amount, 0))
+    const cashPaid = roundMoney(body.payments.filter((p) => p.method === CASH).reduce((s, p) => s + p.amount, 0))
     shiftTotals.cashSales += roundMoney(cashPaid - roundMoney(paid - total))
     shiftTotals.cardSales += cards
     if (cards > 0) {
@@ -208,28 +207,31 @@ export const handlers: HttpHandler[] = [
     const folio = `TX-${now.toISOString().slice(0, 10).replaceAll('-', '')}-${String(folioSequence++).padStart(3, '0')}`
     const change = roundMoney(paid - total)
     tickets.set(folio, {
-      header: {
-        restaurant_name: 'FMAT-RESTAURANT',
-        folio,
-        payment_date: now.toISOString(),
-        table_name: account.table_name ?? account.dinning_session_id.slice(0, 8),
-        cashier_name: 'Edwing Molina',
-      },
+      restaurant_name: 'FMAT-RESTAURANT',
+      folio,
+      paid_at: now.toISOString(),
+      table_name: account.table_name ?? account.dinning_session_id.slice(0, 8),
+      cashier_name: 'Edwing Molina',
       items: account.items.map((item) => ({
         quantity: item.quantity,
         dish_name: item.name,
         unit_price: item.unit_price,
         amount: item.amount,
       })),
-      totals: { ...account.totals, tip: body.tip, total, payments: body.payments, change_given: change },
+      subtotal: account.subtotal,
+      taxes: account.taxes,
+      tip: body.tip,
+      total,
+      change_given: change,
+      payments: body.payments,
     })
 
-    const response: ChargeResponseDTO = {
+    const response: ChargeResponseWire = {
       folio,
       total,
-      change_delivered: change,
-      status: 'COMPLETED',
-      message: 'Cobro registrado correctamente',
+      change_given: change,
+      estado: 'COMPLETADO',
+      mensaje: 'Cobro registrado correctamente',
     }
     return HttpResponse.json(response, { status: 201 })
   }),
@@ -245,7 +247,7 @@ export const handlers: HttpHandler[] = [
   // PMC-24: CSV export (Administrador). Registered before the history so "/export" is not read as a folio.
   http.get(apiUrl(endpoints.salesExport()), ({ request }) => {
     const url = new URL(request.url)
-    const rows = salesHistory.filter((row) => inRange(row.fecha_cobro, url.searchParams.get('start_date'), url.searchParams.get('end_date')))
+    const rows = salesHistory.filter((row) => inRange(row.paid_at, url.searchParams.get('start_date'), url.searchParams.get('end_date')))
     return new HttpResponse(csvOf(rows), {
       headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="historial-ventas.csv"' },
     })
@@ -256,8 +258,8 @@ export const handlers: HttpHandler[] = [
     const url = new URL(request.url)
     const pageIndex = Number(url.searchParams.get('page_index') ?? 1)
     const pageSize = Number(url.searchParams.get('page_size') ?? 20)
-    if (!Number.isInteger(pageIndex) || pageIndex < 1) return error(400, 'INVALID_PAGE_INDEX', 'page_index debe ser mayor a 0')
-    const rows = salesHistory.filter((row) => inRange(row.fecha_cobro, url.searchParams.get('start_date'), url.searchParams.get('end_date')))
+    if (!Number.isInteger(pageIndex) || pageIndex < 1) return error(400, 'VALIDATION_ERROR', 'page_index debe ser mayor a 0')
+    const rows = salesHistory.filter((row) => inRange(row.paid_at, url.searchParams.get('start_date'), url.searchParams.get('end_date')))
     return HttpResponse.json({
       page_index: pageIndex,
       page_size: pageSize,

@@ -51,7 +51,7 @@ describe('PMC-24 · Historial de ventas', () => {
       '/historial-ventas/TX-20260908-000048',
     )
     expect(screen.getAllByText('Efectivo').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Mixto').length).toBeGreaterThan(0)
   })
 
   it('AC4: paginates with the 0-based page of the story translated to the 1-based Backend page', async () => {
