@@ -7,6 +7,10 @@ export const ROUTES = {
   charge: '/payments/charge/:dinningSessionId',
   /** PMC-23 */
   cashShiftClose: '/arqueo-turno',
+  /** PMC-31: Administrador / Gerente */
+  supervision: '/supervision-cajas',
+  /** PMC-31 */
+  supervisionDetail: '/supervision-cajas/:cashShiftId',
   /** PMC-24, PMC-25 */
   salesHistory: '/historial-ventas',
   /** PMC-25: child route; the history stays mounted behind the modal. */
@@ -15,6 +19,10 @@ export const ROUTES = {
 
 export const chargePath = (dinningSessionId: string): string =>
   ROUTES.charge.replace(':dinningSessionId', encodeURIComponent(dinningSessionId))
+
+/** PMC-31: audit view of an open shift. */
+export const supervisionDetailPath = (cashShiftId: string): string =>
+  ROUTES.supervisionDetail.replace(':cashShiftId', encodeURIComponent(cashShiftId))
 
 /** Detail of a sale; `search` keeps the filters and the page of the history (PMC-25 AC3). */
 export const salesDetailPath = (folio: string, search = ''): string =>

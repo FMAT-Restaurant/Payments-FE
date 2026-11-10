@@ -9,10 +9,17 @@ interface RequireAuthProps {
   /** Roles allowed to see the content. Defaults to any valid role of the module. */
   roles?: readonly Role[]
   onUnauthenticated?: () => void
+  /** Text shown when the user is signed in but has none of the allowed roles. */
+  forbiddenDescription?: string
 }
 
 /** Route guard: without a valid JWT the user goes to the Auth login; without a valid role, the module is locked. */
-export function RequireAuth({ children, roles, onUnauthenticated = authNavigation.toLogin }: Readonly<RequireAuthProps>) {
+export function RequireAuth({
+  children,
+  roles,
+  onUnauthenticated = authNavigation.toLogin,
+  forbiddenDescription = 'Tu rol no tiene permisos para Cuenta y Pagos. Contacta a un Administrador.',
+}: Readonly<RequireAuthProps>) {
   const { user, isAuthenticated, hasAnyRole } = useAuth()
 
   useEffect(() => {
@@ -28,7 +35,7 @@ export function RequireAuth({ children, roles, onUnauthenticated = authNavigatio
     return (
       <EmptyState
         title="No tienes acceso a este módulo"
-        description="Tu rol no tiene permisos para Cuenta y Pagos. Contacta a un Administrador."
+        description={forbiddenDescription}
       />
     )
   }

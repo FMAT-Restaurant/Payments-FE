@@ -33,7 +33,8 @@ export interface CashShiftSummaryDTO {
   expected_cash: number
   card_sales: number
   card_transaction_count: number
-  retained_tips: number
+  /** PMC-23 AC2 shows it; the Backend summary does not return it yet, so the KPI renders only when present. */
+  retained_tips?: number
 }
 
 export interface CloseCashShiftRequestDTO {
@@ -44,6 +45,30 @@ export interface CloseCashShiftRequestDTO {
 
 /** The story does not define the close response; the screen only needs the request to succeed. */
 export interface CloseCashShiftResponseDTO {
+  cash_shift_id?: string
+  status?: string
+  difference?: number
+  message?: string
+}
+
+/** PMC-31 AC2: row of `GET /cash-shifts/open`. Cashier names come from the shift (PMC-8), never from the JWT of the viewer. */
+export interface OpenCashShiftItemDTO {
+  cash_shift_id: string
+  cashier_name: string
+  /** ISO-8601 */
+  opened_at: string
+  opening_float: number
+}
+
+/** PMC-31 AC5: body of `POST /cash-shifts/{cash_shift_id}/force-close`. */
+export interface ForceCloseCashShiftRequestDTO {
+  declared_cash: number
+  /** Mandatory audit reason. */
+  force_close_reason: string
+}
+
+/** The story does not define the response; the screen only needs the request to succeed. */
+export interface ForceCloseCashShiftResponseDTO {
   cash_shift_id?: string
   status?: string
   difference?: number

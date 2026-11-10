@@ -55,3 +55,5 @@ src/
 - **Modelos**: interfaces en inglés y payloads en `snake_case`, como en las HU. Si el Backend expone otros nombres, la traducción va en un mapper de `src/api/`, no en los componentes.
 - **Dinero**: `roundMoney` y `formatCurrency` de `src/lib/money.ts`.
 - **Commits**: Conventional Commits con la clave de Jira, p. ej. `feat(PMC-18): ...`.
+
+> Para probar la supervisión de cajas (PMC-31) con mocks, crea `.env.development.local` con `VITE_MOCK_ROLE=Gerente` (o `Administrador`).

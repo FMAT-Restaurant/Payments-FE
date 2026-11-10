@@ -7,6 +7,10 @@ export const queryKeys = {
   ticket: (folio: string) => ['ticket', folio] as const,
   myCashShift: ['cash-shift', 'me'] as const,
   cashShiftSummary: ['cash-shift', 'summary'] as const,
+  /** PMC-31 */
+  openCashShifts: ['supervision', 'open-shifts'] as const,
+  /** PMC-31 */
+  cashShiftSummaryById: (cashShiftId: string) => ['supervision', 'summary', cashShiftId] as const,
   transactionDetail: (folio: string) => ['transaction-detail', folio] as const,
   salesHistory: (query: SalesHistoryQuery) => ['sales-history', query] as const,
 }
