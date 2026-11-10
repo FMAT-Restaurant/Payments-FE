@@ -9,30 +9,19 @@ import { isApiError } from '../api/errors'
 import { queryKeys } from '../api/queryKeys'
 import { ROUTES } from '../app/routes'
 import { useAuth } from '../auth/AuthContext'
-import { BackLink, PageGrid } from '../components/layout/ModuleLayout'
+import { BackLink } from '../components/layout/ModuleLayout'
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui'
 import { cardClassName } from '../components/ui/cardClassName'
 import { closeFormSchema, type CloseFormValues } from '../features/cash-close/closeForm'
-import { cashDifference, describeDifference, formatTransactions } from '../features/cash-close/closeView'
+import { cashDifference } from '../features/cash-close/closeView'
+import { CashComparisonTable } from '../features/cash-close/CashComparisonTable'
 import { DifferenceModal } from '../features/cash-close/DifferenceModal'
+import { ShiftKpis } from '../features/cash-close/ShiftKpis'
 import { parseAmountInput } from '../features/charge/chargeForm'
 import { blockNonAmountKeys } from '../lib/amountInput'
 import { cn } from '../lib/cn'
 import { formatTime } from '../lib/dates'
-import { formatCurrency, roundMoney } from '../lib/money'
-
-function KpiCard({ label, value, caption, aside }: Readonly<{ label: string; value: number; caption: string; aside?: string }>) {
-  return (
-    <Card className="col-span-4 flex flex-col gap-2 desktop:col-span-4">
-      <div className="flex items-start justify-between gap-2">
-        <h2 className="text-caption font-semibold tracking-wide text-muted uppercase">{label}</h2>
-        {aside && <Badge variant="selected">{aside}</Badge>}
-      </div>
-      <p className="text-h1 text-ink">{formatCurrency(value)}</p>
-      <p className="text-small text-muted">{caption}</p>
-    </Card>
-  )
-}
+import { roundMoney } from '../lib/money'
 
 function ReconciliationForm({ summary }: Readonly<{ summary: CashShiftSummaryDTO }>) {
   const navigate = useNavigate()
@@ -49,8 +38,7 @@ function ReconciliationForm({ summary }: Readonly<{ summary: CashShiftSummaryDTO
   const declared = useWatch({ control: form.control, name: 'declared_cash' })
   const hasDeclared = typeof declared === 'number' && Number.isFinite(declared)
   const difference = hasDeclared ? cashDifference(declared, summary.expected_cash) : null
-  const view = difference === null ? null : describeDifference(difference)
-
+  
   const close = useMutation({
     mutationFn: closeCashShift,
     onSuccess: async () => {
@@ -98,37 +86,12 @@ function ReconciliationForm({ summary }: Readonly<{ summary: CashShiftSummaryDTO
             />
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[34rem] text-left">
-              <caption className="sr-only">Validación del efectivo en caja</caption>
-              <thead>
-                <tr className="border-b border-border text-caption font-semibold tracking-wide text-muted uppercase">
-                  <th scope="col" className="py-3 pr-4">Concepto de validación</th>
-                  <th scope="col" className="py-3 pr-4">Monto sistema</th>
-                  <th scope="col" className="py-3 pr-4">Monto físico declarado</th>
-                  <th scope="col" className="py-3 text-right">Diferencia</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-border">
-                  <th scope="row" className="py-4 pr-4 text-body font-semibold text-ink">Total Efectivo en Caja</th>
-                  <td className="py-4 pr-4 text-body">{formatCurrency(summary.expected_cash)}</td>
-                  <td className="py-4 pr-4 text-body font-semibold text-ink">
-                    {hasDeclared ? formatCurrency(declared) : '—'}
-                  </td>
-                  <td className="py-4 text-right">
-                    {view ? (
-                      <Badge variant={view.variant} withDot>
-                        {view.label}
-                      </Badge>
-                    ) : (
-                      <span className="text-small text-muted">Ingresa el efectivo contado</span>
-                    )}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <CashComparisonTable
+            expectedCash={summary.expected_cash}
+            physicalCash={hasDeclared ? declared : undefined}
+            difference={difference}
+            physicalLabel="Monto físico declarado"
+          />
 
           <div className="flex justify-end">
             <Button type="submit" size="lg" isLoading={close.isPending && pendingDeclared === null} disabled={!form.formState.isValid}>
@@ -219,24 +182,7 @@ export function CashShiftClosePage() {
 
       {data && (
         <>
-          <PageGrid>
-            <KpiCard
-              label="Fondo + Ventas Efectivo"
-              value={data.expected_cash}
-              caption={`Fondo inicial: ${formatCurrency(data.initial_amount)} + Cobros efectivo: ${formatCurrency(data.cash_sales)}`}
-            />
-            <KpiCard
-              label="Cobros con Tarjeta"
-              value={data.card_sales}
-              caption={formatTransactions(data.card_transaction_count)}
-            />
-            <KpiCard
-              label="Propinas Retenidas"
-              value={data.retained_tips}
-              caption="Acumulado en cobros con terminal"
-              aside="Pago a meseros"
-            />
-          </PageGrid>
+          <ShiftKpis summary={data} />
           <ReconciliationForm summary={data} />
         </>
       )}

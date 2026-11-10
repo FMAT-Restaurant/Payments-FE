@@ -1,5 +1,6 @@
-import { createBrowserRouter, Navigate, type RouteObject } from 'react-router'
+import { createBrowserRouter, Navigate, Outlet, type RouteObject } from 'react-router'
 import { RequireAuth } from '../auth/guards'
+import { PERMISSIONS } from '../auth/roles'
 import { ModuleLayout } from '../components/layout/ModuleLayout'
 import { MenuPage } from '../pages/MenuPage'
 import { NotFoundPage } from '../pages/PendingPage'
@@ -25,6 +26,27 @@ export const routes: RouteObject[] = [
       {
         path: ROUTES.cashShiftClose,
         lazy: async () => ({ Component: (await import('../pages/CashShiftClosePage')).CashShiftClosePage }),
+      },
+      // PMC-31 AC1: only Administrador and Gerente reach the supervision screens.
+      {
+        element: (
+          <RequireAuth
+            roles={PERMISSIONS.forceCloseCashShift}
+            forbiddenDescription="Solo un Administrador o un Gerente puede supervisar las cajas."
+          >
+            <Outlet />
+          </RequireAuth>
+        ),
+        children: [
+          {
+            path: ROUTES.supervision,
+            lazy: async () => ({ Component: (await import('../pages/SupervisionPage')).SupervisionPage }),
+          },
+          {
+            path: ROUTES.supervisionDetail,
+            lazy: async () => ({ Component: (await import('../pages/ForceCloseShiftPage')).ForceCloseShiftPage }),
+          },
+        ],
       },
       {
         path: ROUTES.salesHistory,

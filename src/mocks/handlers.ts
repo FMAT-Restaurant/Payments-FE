@@ -3,6 +3,8 @@ import type {
   CashShiftDTO,
   CashShiftSummaryDTO,
   CloseCashShiftRequestDTO,
+  ForceCloseCashShiftRequestDTO,
+  OpenCashShiftItemDTO,
   OpenCashShiftRequestDTO,
 } from '../api/contracts/cashShift'
 import type { ChargeRequestDTO, ChargeResponseDTO } from '../api/contracts/charge'
@@ -31,6 +33,29 @@ let openShift: CashShiftDTO | null = null
 /** Running totals of the open shift (PMC-23), updated by every mocked charge. */
 const emptyTotals = () => ({ cashSales: 0, cardSales: 0, cardTransactions: 0, retainedTips: 0 })
 let shiftTotals = emptyTotals()
+
+/** PMC-31: shifts of other cashiers, visible to Administrador / Gerente. Force-closing one removes it. */
+const supervisedShifts = (): Array<{ shift: OpenCashShiftItemDTO; summary: CashShiftSummaryDTO }> => {
+  const make = (id: string, name: string, openedAt: string, float: number, cash: number, card: number, count: number, tips: number) => ({
+    shift: { cash_shift_id: id, cashier_name: name, opened_at: openedAt, opening_float: float },
+    summary: {
+      cash_shift_id: id,
+      cashier_name: name,
+      opened_at: openedAt,
+      initial_amount: float,
+      cash_sales: cash,
+      expected_cash: roundMoney(float + cash),
+      card_sales: card,
+      card_transaction_count: count,
+      retained_tips: tips,
+    },
+  })
+  return [
+    make('8f1b6c3e-0a52-4c1e-9d7a-3c8891ab8891', 'Ana M.', '2026-11-04T08:30:00-06:00', 1000, 1840, 2650, 9, 265),
+    make('2d7e5a90-61cb-47f4-b3a8-5e1c4ab88840', 'Carlos R.', '2026-11-03T15:45:00-06:00', 500, 2950, 5120, 18, 512),
+  ]
+}
+let supervised = supervisedShifts()
 
 /** Rows inside [start, end): `end_date` is exclusive, like the Backend range. */
 const inRange = (iso: string, start: string | null, end: string | null): boolean => {
@@ -111,6 +136,36 @@ export const handlers: HttpHandler[] = [
     openShift = null
     return HttpResponse.json({
       cash_shift_id: closed.cash_shift_id,
+      status: difference === 0 ? 'CLOSED' : 'UNBALANCED',
+      difference,
+      message: difference === 0 ? 'Turno cerrado' : 'Turno cerrado con descuadre',
+    })
+  }),
+
+  // PMC-31: open shifts of the restaurant.
+  http.get(apiUrl(endpoints.openCashShifts()), () => HttpResponse.json(supervised.map((item) => item.shift))),
+
+  // PMC-31: reconciliation of a shift of another cashier.
+  http.get(apiUrl('/cash-shifts/:cashShiftId/summary'), ({ params }) => {
+    const found = supervised.find((item) => item.shift.cash_shift_id === params.cashShiftId)
+    return found ? HttpResponse.json(found.summary) : error(404, 'CASH_SHIFT_NOT_FOUND', 'El turno no existe o ya fue cerrado')
+  }),
+
+  // PMC-31: forced close with a mandatory audit reason.
+  http.post(apiUrl('/cash-shifts/:cashShiftId/force-close'), async ({ params, request }) => {
+    const found = supervised.find((item) => item.shift.cash_shift_id === params.cashShiftId)
+    if (!found) return error(409, 'CASH_SHIFT_ALREADY_CLOSED', 'El turno ya se encuentra cerrado')
+    const body = (await request.json()) as ForceCloseCashShiftRequestDTO
+    if (typeof body.declared_cash !== 'number' || body.declared_cash < 0) {
+      return error(400, 'VALIDATION_ERROR', 'El efectivo auditado debe ser mayor o igual a 0.')
+    }
+    if (!body.force_close_reason?.trim()) {
+      return error(400, 'VALIDATION_ERROR', 'El motivo del cierre forzado es obligatorio.')
+    }
+    const difference = roundMoney(body.declared_cash - found.summary.expected_cash)
+    supervised = supervised.filter((item) => item !== found)
+    return HttpResponse.json({
+      cash_shift_id: found.shift.cash_shift_id,
       status: difference === 0 ? 'CLOSED' : 'UNBALANCED',
       difference,
       message: difference === 0 ? 'Turno cerrado' : 'Turno cerrado con descuadre',

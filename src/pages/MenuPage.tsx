@@ -11,9 +11,13 @@ const MODULES = [
   { to: ROUTES.salesHistory, title: 'Historial de Ventas', icon: '🧾' },
 ] as const
 
+/** PMC-31 AC1: only rendered for users with the `forceCloseCashShift` permission. */
+const SUPERVISION_MODULE = { to: ROUTES.supervision, title: 'Supervisión de Cajas', icon: '🛡️' } as const
+
 /** Home of the "Cuenta y Pagos" module (mock: docs/Menu.png). */
 export function MenuPage() {
-  const { user } = useAuth()
+  const { user, can } = useAuth()
+  const modules = can('forceCloseCashShift') ? [...MODULES, SUPERVISION_MODULE] : MODULES
   const roleLabel = user?.roles[0] ?? 'Usuario'
 
   return (
@@ -33,7 +37,7 @@ export function MenuPage() {
 
       <nav aria-label="Secciones de Cuenta y Pagos">
         <PageGrid className="desktop:px-8">
-          {MODULES.map((module) => (
+          {modules.map((module) => (
             <Link
               key={module.to}
               to={module.to}
