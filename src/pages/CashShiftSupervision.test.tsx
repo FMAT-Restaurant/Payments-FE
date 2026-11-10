@@ -264,6 +264,18 @@ describe('PMC-31 · AC5 · cierre forzado', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(ROUTES.supervision))
   })
 
+  it('404: goes back to the grid when the shift no longer exists', async () => {
+    mockApi({ forceClose: { status: 404, code: 'CASH_SHIFT_NOT_FOUND', message: 'El turno no existe' } })
+    const { user, router } = await renderDetail()
+    await user.type(auditedInput(), '3400')
+    await user.type(reasonInput(), 'Cierre por abandono')
+    await waitFor(() => expect(executeButton()).toBeEnabled())
+
+    await user.click(executeButton())
+
+    await waitFor(() => expect(router.state.location.pathname).toBe(ROUTES.supervision))
+  })
+
   it('403: leaves the screen and goes back to the menu', async () => {
     mockApi({ forceClose: { status: 403, code: 'FORBIDDEN_ROLE', message: 'No tienes permisos para realizar esta acción.' } })
     const { user, router } = await renderDetail()

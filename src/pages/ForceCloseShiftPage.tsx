@@ -52,8 +52,8 @@ function AuditForm({ summary, cashShiftId }: Readonly<{ summary: CashShiftSummar
     onError: async (error) => {
       // The interceptor already toasted the Backend message; here we only move the user somewhere useful.
       if (!isApiError(error)) return
-      if (error.status === HTTP_CONFLICT) {
-        // Another supervisor (or the cashier) closed it first: the grid shows the real state.
+      if (error.status === HTTP_CONFLICT || error.status === HTTP_NOT_FOUND) {
+        // Another supervisor (or the cashier) closed it first, or it no longer exists: the grid shows the real state.
         await queryClient.invalidateQueries({ queryKey: queryKeys.openCashShifts })
         await navigate(ROUTES.supervision, { replace: true })
       } else if (error.status === HTTP_FORBIDDEN) {
@@ -215,7 +215,7 @@ export function ForceCloseShiftPage() {
       {data && (
         <>
           <ShiftKpis summary={data} />
-          <AuditForm summary={data} cashShiftId={cashShiftId} />
+          <AuditForm key={cashShiftId} summary={data} cashShiftId={cashShiftId} />
         </>
       )}
     </section>
