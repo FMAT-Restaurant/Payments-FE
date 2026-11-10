@@ -37,12 +37,21 @@ export interface SalesExportQuery {
 }
 
 /** Wire shapes of Payments-BE (`qa`), kept apart so the screens only know the contract of the story. */
+export interface PaymentBreakdownWire {
+  /** Spanish method name, e.g. "EFECTIVO". */
+  method: string
+  amount: number
+  authorization_reference?: string | null
+}
+
 export interface SalesHistoryItemWire {
   folio: string
   total: number
-  estado: string
-  fecha_cobro: string
-  metodo_pago?: string | null
+  status: string
+  paid_at: string
+  cash_shift_id?: string
+  payment_breakdowns: PaymentBreakdownWire[]
+  items?: Array<{ dish_name: string; quantity: number; unit_price: number }>
 }
 
 export interface SalesHistoryPageWire {
@@ -80,18 +89,18 @@ export interface TransactionDetailDTO {
   }>
 }
 
-/** Wire shape of PMC-11 in Payments-BE; the optional fields are the ones the PO agreed to add. */
+/** Wire shape of `GET /{folio}` in Payments-BE. */
 export interface TransactionDetailWire {
   folio: string
-  total: number
-  estado: string
-  fecha_cobro?: string
-  subtotal?: number
-  impuestos?: number
-  propina?: number
-  cambio_entregado?: number
-  turno_caja_id?: string
+  cash_shift_id?: string
   dinning_session_id?: string
-  detalles: Array<{ nombre_platillo: string; cantidad: number; precio_unitario: number; importe: number }>
-  desgloses: Array<{ metodo_pago: string; monto: number; referencia_autorizacion?: string | null }>
+  status: string
+  paid_at: string
+  subtotal: number
+  taxes: number
+  tip: number
+  total: number
+  change_given: number
+  items: Array<{ dish_name: string; quantity: number; unit_price: number; amount: number }>
+  payment_breakdowns: PaymentBreakdownWire[]
 }

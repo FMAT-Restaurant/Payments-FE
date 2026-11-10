@@ -2,8 +2,8 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { ChargeRequestDTO } from '../api/contracts/charge'
-import type { PendingAccountCardDTO } from '../api/contracts/pendingAccounts'
+import type { ChargeRequestWire } from '../api/contracts/charge'
+import type { PendingAccountWire } from '../api/contracts/pendingAccounts'
 import { endpoints } from '../api/endpoints'
 import { routes } from '../app/router'
 import { chargePath, ROUTES } from '../app/routes'
@@ -18,23 +18,22 @@ const SESSION_ID = 'SESSION_123'
 const url = (path: string) => new URL(`/api/v1/payments${path}`, window.location.origin).toString()
 
 /** Account of the Gherkin scenarios: consumption total of $200.00. */
-const account: PendingAccountCardDTO = {
+const account: PendingAccountWire = {
   dinning_session_id: SESSION_ID,
   order_folio: '#ORD-1001',
   table_name: 'Mesa 04',
   waiter_name: 'Carlos R.',
   timestamp: new Date().toISOString(),
-  pre_account_status: 'ACCOUNT_REQUESTED',
   items: [
     { dish_id: 'd-1', name: 'Tacos al Pastor', quantity: 2, unit_price: 60, amount: 120, notes: 'Sin cebolla' },
     { dish_id: 'd-2', name: 'Agua de Horchata', quantity: 1, unit_price: 52.41, amount: 52.41 },
   ],
-  totals: { subtotal: 172.41, taxes: 27.59, expected_total: 200 },
+  subtotal: 172.41, taxes: 27.59, total: 200,
 }
 
 let requestedSessions: string[] = []
 
-function mockAccount(data: PendingAccountCardDTO = account) {
+function mockAccount(data: PendingAccountWire = account) {
   requestedSessions = []
   server.use(
     http.get(url('/pendings/:id'), ({ params }) => {
@@ -73,12 +72,12 @@ afterEach(() => {
 describe('PMC-20 · Procesar Pago', () => {
   it('Scenario 1: cobro mixto exacto y envío de payload reducido', async () => {
     mockAccount()
-    let body: ChargeRequestDTO | null = null
+    let body: ChargeRequestWire | null = null
     server.use(
       http.post(url(endpoints.charge()), async ({ request }) => {
-        body = (await request.json()) as ChargeRequestDTO
+        body = (await request.json()) as ChargeRequestWire
         return HttpResponse.json(
-          { folio: 'TX-20260929-002', total: 230, change_delivered: 0, status: 'COMPLETED', message: 'OK' },
+          { folio: 'TX-20260929-002', total: 230, change_given: 0, estado: 'COMPLETADO', mensaje: 'OK' },
           { status: 201 },
         )
       }),
@@ -101,8 +100,8 @@ describe('PMC-20 · Procesar Pago', () => {
       dinning_session_id: SESSION_ID,
       tip: 30,
       payments: [
-        { payment_method: 'CASH', amount: 100, authorization_reference: null },
-        { payment_method: 'CREDIT_CARD', amount: 130, authorization_reference: 'AUTH-123' },
+        { method: 'EFECTIVO', amount: 100, authorization_reference: null },
+        { method: 'TARJETA_CREDITO', amount: 130, authorization_reference: 'AUTH-123' },
       ],
     })
   })
@@ -161,7 +160,7 @@ describe('PMC-20 · Procesar Pago', () => {
   })
 
   it('shows the mock figures: 15% tip of $35.67 and $273.47 to charge', async () => {
-    mockAccount({ ...account, totals: { subtotal: 205, taxes: 32.8, expected_total: 237.8 } })
+    mockAccount({ ...account, subtotal: 205, taxes: 32.8, total: 237.8 })
     const { user } = await renderChargePage()
 
     const fifteen = screen.getByRole('button', { name: /15%/ })

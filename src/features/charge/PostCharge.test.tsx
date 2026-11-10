@@ -2,8 +2,8 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PendingAccountCardDTO } from '../../api/contracts/pendingAccounts'
-import type { TicketReceiptDTO } from '../../api/contracts/ticket'
+import type { PendingAccountWire } from '../../api/contracts/pendingAccounts'
+import type { TicketReceiptDTO, TicketReceiptWire } from '../../api/contracts/ticket'
 import { routes } from '../../app/router'
 import { chargePath, ROUTES } from '../../app/routes'
 import { ROLES } from '../../auth/roles'
@@ -27,18 +27,19 @@ const SESSION_ID = '3f2b8c1e-7a4d-4e9b-b1c2-9d8e7f6a5b40'
 const FOLIO = 'TX-1042'
 const url = (path: string) => new URL(`/api/v1/payments${path}`, window.location.origin).toString()
 
-const account: PendingAccountCardDTO = {
+const account: PendingAccountWire = {
   dinning_session_id: SESSION_ID,
   order_folio: '#ORD-9938',
   table_name: 'Mesa 04',
   waiter_name: 'Carlos R.',
   timestamp: new Date().toISOString(),
-  pre_account_status: 'ACCOUNT_REQUESTED',
   items: [
     { dish_id: 'd-101', name: 'Tacos al Pastor', quantity: 2, unit_price: 60, amount: 120 },
     { dish_id: 'd-205', name: 'Cerveza Artesanal', quantity: 1, unit_price: 85, amount: 85 },
   ],
-  totals: { subtotal: 205, taxes: 32.8, expected_total: 237.8 },
+  subtotal: 205,
+  taxes: 32.8,
+  total: 237.8,
 }
 
 const ticket: TicketReceiptDTO = {
@@ -66,6 +67,18 @@ const ticket: TicketReceiptDTO = {
   },
 }
 
+/** The same receipt as Payments-BE sends it: flat and with the methods in Spanish. */
+const ticketWire: TicketReceiptWire = {
+  ...ticket.header,
+  paid_at: ticket.header.payment_date,
+  items: ticket.items,
+  ...ticket.totals,
+  payments: [
+    { method: 'EFECTIVO', amount: 200, authorization_reference: null },
+    { method: 'TARJETA_CREDITO', amount: 100, authorization_reference: 'AUTH-987654' },
+  ],
+}
+
 let ticketRequests: string[]
 
 function mockApi({ ticketFails = false } = {}) {
@@ -82,14 +95,14 @@ function mockApi({ ticketFails = false } = {}) {
     http.post(url('/charge'), () => {
       charged = true
       return HttpResponse.json(
-        { folio: FOLIO, total: 273.47, change_delivered: 26.53, status: 'COMPLETED', message: 'OK' },
+        { folio: FOLIO, total: 273.47, change_given: 26.53, estado: 'COMPLETADO', mensaje: 'OK' },
         { status: 201 },
       )
     }),
     http.get(url('/:folio/ticket'), ({ params }) => {
       ticketRequests.push(String(params.folio))
       ticketAttempts += 1
-      return ticketFails && ticketAttempts === 1 ? HttpResponse.error() : HttpResponse.json(ticket)
+      return ticketFails && ticketAttempts === 1 ? HttpResponse.error() : HttpResponse.json(ticketWire)
     }),
   )
 }

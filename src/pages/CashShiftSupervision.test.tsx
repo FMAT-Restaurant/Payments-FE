@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
 import type {
-  CashShiftSummaryDTO,
+  CashShiftSummaryWire,
   ForceCloseCashShiftRequestDTO,
   OpenCashShiftItemDTO,
 } from '../api/contracts/cashShift'
@@ -29,14 +29,13 @@ const carlos: OpenCashShiftItemDTO = {
   opened_at: new Date(2026, 10, 3, 15, 45).toISOString(),
   opening_float: 500,
 }
-const carlosSummary: CashShiftSummaryDTO = {
+const carlosSummary: CashShiftSummaryWire = {
   cash_shift_id: carlos.cash_shift_id,
   cashier_name: carlos.cashier_name,
   opened_at: carlos.opened_at,
-  initial_amount: 500,
-  cash_sales: 2950,
+  opening_float: 500,
   expected_cash: 3450,
-  card_sales: 5120,
+  card_total: 5120,
   card_transaction_count: 18,
   retained_tips: 512,
 }
@@ -45,7 +44,7 @@ type ForceCloseAnswer = 'ok' | { status: number; code: string; message: string }
 
 function mockApi({
   list = [ana, carlos] as OpenCashShiftItemDTO[] | { status: number; code: string; message: string },
-  summary = carlosSummary as CashShiftSummaryDTO | null,
+  summary = carlosSummary as CashShiftSummaryWire | null,
   forceClose = 'ok' as ForceCloseAnswer,
 } = {}) {
   const calls = { bodies: [] as ForceCloseCashShiftRequestDTO[], closedIds: [] as string[] }
@@ -69,7 +68,7 @@ function mockApi({
         return HttpResponse.json({ code: forceClose.code, message: forceClose.message }, { status: forceClose.status })
       }
       open = open.filter((shift) => shift.cash_shift_id !== params.cashShiftId)
-      return HttpResponse.json({ status: 'UNBALANCED', message: 'Turno cerrado con descuadre' })
+      return HttpResponse.json({ status: 'DESCUADRADO', message: 'Turno cerrado con descuadre' })
     }),
   )
   return calls

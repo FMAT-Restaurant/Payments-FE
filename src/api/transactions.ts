@@ -1,39 +1,25 @@
 import { httpClient } from './client'
+import { fromWireMethod } from './contracts/charge'
 import type { TransactionDetailDTO, TransactionDetailWire } from './contracts/sales'
 import { endpoints } from './endpoints'
-import { roundMoney } from '../lib/money'
 
-const sum = (values: number[]): number => roundMoney(values.reduce((total, value) => total + value, 0))
-
-/**
- * Maps the Backend detail (PMC-11) to the contract of PMC-25. Fields the Backend has not published yet
- * fall back to what can be derived from the rest: subtotal from the items, change from payments - total.
- */
+/** Maps the Backend detail to the contract of PMC-25: only the payment method changes its name and language. */
 export function toTransactionDetail(wire: TransactionDetailWire): TransactionDetailDTO {
-  const itemsTotal = sum(wire.detalles.map((item) => item.importe))
-  const tip = wire.propina ?? 0
-  const taxes = wire.impuestos ?? 0
   return {
     id: wire.folio,
     folio: wire.folio,
-    paid_at: wire.fecha_cobro ?? '',
+    paid_at: wire.paid_at,
     status: 'COMPLETED',
-    subtotal: wire.subtotal ?? itemsTotal,
-    taxes,
-    tip,
+    subtotal: wire.subtotal,
+    taxes: wire.taxes,
+    tip: wire.tip,
     total: wire.total,
-    change_given:
-      wire.cambio_entregado ?? Math.max(0, roundMoney(sum(wire.desgloses.map((payment) => payment.monto)) - wire.total)),
-    items: wire.detalles.map((item) => ({
-      dish_name: item.nombre_platillo,
-      quantity: item.cantidad,
-      unit_price: item.precio_unitario,
-      amount: item.importe,
-    })),
-    payment_breakdowns: wire.desgloses.map((payment) => ({
-      payment_method: payment.metodo_pago,
-      amount: payment.monto,
-      authorization_reference: payment.referencia_autorizacion ?? null,
+    change_given: wire.change_given,
+    items: wire.items,
+    payment_breakdowns: wire.payment_breakdowns.map((payment) => ({
+      payment_method: fromWireMethod(payment.method),
+      amount: payment.amount,
+      authorization_reference: payment.authorization_reference ?? null,
     })),
   }
 }

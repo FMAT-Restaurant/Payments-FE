@@ -1,5 +1,5 @@
 import type { SalesHistoryItemWire, TransactionDetailWire } from '../../api/contracts/sales'
-import type { TicketReceiptDTO } from '../../api/contracts/ticket'
+import type { TicketReceiptWire } from '../../api/contracts/ticket'
 import { roundMoney } from '../../lib/money'
 
 const DISHES = ['Tacos al Pastor', 'Cochinita Pibil', 'Agua de Horchata', 'Flan Napolitano'] as const
@@ -12,56 +12,41 @@ export function transactionDetailFixture(row: SalesHistoryItemWire): Transaction
   const taxes = roundMoney(total - subtotal)
   const firstAmount = roundMoney(subtotal * 0.6)
   const items = [
-    { nombre_platillo: DISHES[0], cantidad: 2, importe: firstAmount },
-    { nombre_platillo: DISHES[total > 300 ? 1 : 2], cantidad: 1, importe: roundMoney(subtotal - firstAmount) },
-  ].map((item) => ({ ...item, precio_unitario: roundMoney(item.importe / item.cantidad) }))
+    { dish_name: DISHES[0], quantity: 2, amount: firstAmount },
+    { dish_name: DISHES[total > 300 ? 1 : 2], quantity: 1, amount: roundMoney(subtotal - firstAmount) },
+  ].map((item) => ({ ...item, unit_price: roundMoney(item.amount / item.quantity) }))
 
-  const isCard = row.metodo_pago === 'CARD'
-  const received = isCard ? total : Math.ceil(total / 50) * 50
+  const isCardOnly = row.payment_breakdowns.every((payment) => payment.method !== 'EFECTIVO')
+  const received = isCardOnly ? total : Math.ceil(total / 50) * 50
   return {
     folio: row.folio,
-    total,
-    estado: 'COMPLETED',
-    fecha_cobro: row.fecha_cobro,
+    status: 'COMPLETADO',
+    paid_at: row.paid_at,
     subtotal,
-    impuestos: taxes,
-    propina: 0,
-    cambio_entregado: roundMoney(received - total),
-    detalles: items,
-    desgloses: [
-      isCard
-        ? { metodo_pago: 'CREDIT_CARD', monto: total, referencia_autorizacion: 'AUTH-987654' }
-        : { metodo_pago: 'CASH', monto: received, referencia_autorizacion: null },
-    ],
+    taxes,
+    tip: 0,
+    total,
+    change_given: roundMoney(received - total),
+    items,
+    payment_breakdowns: isCardOnly
+      ? [{ method: 'TARJETA_CREDITO', amount: total, authorization_reference: 'AUTH-987654' }]
+      : [{ method: 'EFECTIVO', amount: received, authorization_reference: null }],
   }
 }
 
-export function ticketFixture(detail: TransactionDetailWire): TicketReceiptDTO {
+export function ticketFixture(detail: TransactionDetailWire): TicketReceiptWire {
   return {
-    header: {
-      restaurant_name: 'FMAT-RESTAURANT',
-      folio: detail.folio,
-      payment_date: detail.fecha_cobro ?? new Date().toISOString(),
-      table_name: 'Mesa 4',
-      cashier_name: 'Edwing Molina',
-    },
-    items: detail.detalles.map((item) => ({
-      quantity: item.cantidad,
-      dish_name: item.nombre_platillo,
-      unit_price: item.precio_unitario,
-      amount: item.importe,
-    })),
-    totals: {
-      subtotal: detail.subtotal ?? 0,
-      taxes: detail.impuestos ?? 0,
-      tip: detail.propina ?? 0,
-      total: detail.total,
-      payments: detail.desgloses.map((payment) => ({
-        payment_method: payment.metodo_pago,
-        amount: payment.monto,
-        authorization_reference: payment.referencia_autorizacion ?? null,
-      })),
-      change_given: detail.cambio_entregado ?? 0,
-    },
+    restaurant_name: 'FMAT-RESTAURANT',
+    folio: detail.folio,
+    paid_at: detail.paid_at,
+    table_name: 'Mesa 4',
+    cashier_name: 'Edwing Molina',
+    items: detail.items,
+    subtotal: detail.subtotal,
+    taxes: detail.taxes,
+    tip: detail.tip,
+    total: detail.total,
+    change_given: detail.change_given,
+    payments: detail.payment_breakdowns,
   }
 }

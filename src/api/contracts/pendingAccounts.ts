@@ -20,11 +20,19 @@ export interface PendingAccountCardDTO {
   waiter_name?: string | null
   /** ISO-8601 */
   timestamp: string
-  pre_account_status: PreAccountStatus
+  /** Payments-BE does not send it; the card hides the label when it is missing. */
+  pre_account_status?: PreAccountStatus
   items: PendingAccountItemDTO[]
   totals: {
     subtotal: number
     taxes: number
     expected_total: number
   }
+}
+
+/** Wire shape of Payments-BE: flat totals and no pre-account status. */
+export interface PendingAccountWire extends Omit<PendingAccountCardDTO, 'pre_account_status' | 'totals'> {
+  subtotal: number
+  taxes: number
+  total: number
 }
